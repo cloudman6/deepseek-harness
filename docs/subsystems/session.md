@@ -228,6 +228,12 @@ type SessionEvent<T extends SessionEventType = SessionEventType> = {
      * inconvenience) rather than silently resuming a gutted session.
      */
     ignorable?: true
+    /**
+     * Runtime namespace/version that validated a required plugin-owned event.
+     * Built-in events do not carry this field. A cold reader must possess the
+     * exact registration before reconstructing a required plugin event.
+     */
+    registration?: SessionEventRegistrationRef
   } & (K extends SurfaceEventType ? {
     /**
      * Seq numbers of earlier events that this event cites as sources
@@ -592,7 +598,9 @@ Consumers that order Sessions by human activity exclude this boundary: picking a
 
 ## Plugin-contributed log-only events
 
-A plugin may declaration-merge extra `SessionEventMap` types. These are **log-only**: NOT `SurfaceEventType`s (they carry no `surfaceOp` and contribute nothing to derived history). Their owner decides whether they belong to an open execution turn or may stand between turns, and enforces any relation in its own invariant companion. The generated [persistence log event catalog](../persistence-catalog.md) enumerates every core and plugin-contributed event with its payload, surface badge, and declaration site; the compaction seam's `compaction/*` semantics are discussed on [compaction.md](compaction.md).
+A plugin may declaration-merge extra `SessionEventMap` types. These are **log-only**: NOT `SurfaceEventType`s (they carry no `surfaceOp` and contribute nothing to derived history). Repository-local types enter the generated built-in catalog. An out-of-tree plugin additionally registers its complete namespace at runtime with `ctx.sessions.registerEventNamespace({ namespace, owner, version, events })`; each schema exposes `parse(unknown)`. An attached live append of a required out-of-tree type fails before mutation unless its registration exists and accepts the JSON snapshot, then records `registration: { namespace, version }`. Cold reconstruction requires the exact version and validates again; missing plugin code, version mismatch, undeclared type, or schema failure is an unsupported-format refusal. Schema return values never replace durable data. Explicitly ignorable unknown events retain their skip contract.
+
+The event owner decides whether its records belong to an open execution turn or may stand between turns, and enforces any relation in its own invariant companion. The generated [persistence log event catalog](../persistence-catalog.md) enumerates every repository-local event with its payload, surface badge, and declaration site; the compaction seam's `compaction/*` semantics are discussed on [compaction.md](compaction.md).
 
 When several events in one plugin-owned family assemble into one Web Client Conversation Node, every start, update, result, resource, or interruption event in that family carries or independently derives the same stable business id. This requirement applies to correlated Node families, not to every Session event; it lets the client group each event without guessing from adjacency or scanning history. See the [Conversation Node cookbook](../cookbook/adding-a-conversation-node.md).
 
@@ -621,6 +629,20 @@ In-memory session store (`ctx.sessions`).
 Persistence is intentionally not implemented here — persistence plugins subscribe to `session/event` and flush on `session/flush` / dispose.
 
 ```ts cordis-catalog
+/**
+ * Register the complete durable event vocabulary for one plugin namespace.
+ * Registration is atomic, exclusive, and disposed with the calling fiber.
+ * @param registration - owner, exact schema version, and payload schemas.
+ * @returns a disposer that withdraws this namespace immediately.
+ */
+registerEventNamespace(registration: SessionEventNamespaceRegistration): () => void
+
+/**
+ * Validate one required plugin event read from durable storage.
+ * @param event - normalized event whose registration and payload must match.
+ */
+assertRegisteredEventSupported(event: SessionEvent): void
+
 /**
  * Create a session owned by the calling fiber: disposing that fiber stops
  * event notification and removes the session from the store. `options.seed`
@@ -746,7 +768,7 @@ fork(source: SessionForkSource, boundary?: number, childSessionId?: SessionId): 
 
 Types: [CreateSessionOptions](persistence.md) · [PrepareSessionOptions](persistence.md) · [SessionId](core.md)
 
-Source: [`packages/core/session/src/index.ts:792`](../../packages/core/session/src/index.ts)
+Source: [`packages/core/session/src/index.ts:838`](../../packages/core/session/src/index.ts)
 
 <a id="session-events"></a>
 
@@ -775,7 +797,7 @@ Creation announcement during session publication. A synchronous throw vetoes and
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/session/src/index.ts:54`](../../packages/core/session/src/index.ts)
+Source: [`packages/core/session/src/index.ts:55`](../../packages/core/session/src/index.ts)
 
 <a id="sessiondisposed--emit"></a>
 
@@ -798,7 +820,7 @@ Emitted once when an announced session leaves the store, including publication r
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/session/src/index.ts:64`](../../packages/core/session/src/index.ts)
+Source: [`packages/core/session/src/index.ts:65`](../../packages/core/session/src/index.ts)
 
 <a id="sessionevent--emit"></a>
 
@@ -823,7 +845,7 @@ Post-commit, fire-and-forget append feed. The listener snapshot resolves before 
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/session/src/index.ts:76`](../../packages/core/session/src/index.ts)
+Source: [`packages/core/session/src/index.ts:77`](../../packages/core/session/src/index.ts)
 
 <a id="sessionflush--parallel"></a>
 
@@ -845,5 +867,5 @@ Awaited parallel durability checkpoint: every listener runs and the caller await
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/session/src/index.ts:85`](../../packages/core/session/src/index.ts)
+Source: [`packages/core/session/src/index.ts:86`](../../packages/core/session/src/index.ts)
 <!-- END GENERATED cordis-surface -->

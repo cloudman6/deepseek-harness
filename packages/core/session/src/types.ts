@@ -219,6 +219,37 @@ export interface RequestContext {
   contextWindow?: number
 }
 
+/** Runtime payload validator for one plugin-owned durable event type. */
+export interface SessionEventPayloadSchema {
+  /**
+   * Validate an untrusted JSON payload. The return value is ignored: durable
+   * history always preserves the original lossless JSON snapshot.
+   * @param value - detached JSON payload to validate.
+   * @returns any value; validation succeeds when this call does not throw.
+   */
+  parse(value: unknown): unknown
+}
+
+/** Complete runtime registration for one plugin-owned durable event namespace. */
+export interface SessionEventNamespaceRegistration {
+  /** Globally unique namespace that prefixes every registered event type. */
+  namespace: string
+  /** Stable plugin/package identity used in diagnostics. */
+  owner: string
+  /** Positive integer version of this namespace's durable payload contract. */
+  version: number
+  /** Complete event-type to payload-schema mapping for this version. */
+  events: Readonly<Record<string, SessionEventPayloadSchema>>
+}
+
+/** Durable identity of the runtime registration that validated a plugin event. */
+export interface SessionEventRegistrationRef {
+  /** Registered namespace that owns the event type. */
+  namespace: string
+  /** Exact durable schema version used by the writer. */
+  version: number
+}
+
 /**
  * Why a `request/header` snapshot was appended: `'initial'` — the log's first
  * header (a new conversation); `'resume'` — a loop instance's first request
@@ -420,6 +451,12 @@ export type SessionEvent<T extends SessionEventType = SessionEventType> = {
      * inconvenience) rather than silently resuming a gutted session.
      */
     ignorable?: true
+    /**
+     * Runtime namespace/version that validated a required plugin-owned event.
+     * Built-in events do not carry this field. A cold reader must possess the
+     * exact registration before reconstructing a required plugin event.
+     */
+    registration?: SessionEventRegistrationRef
   } & (K extends SurfaceEventType ? {
     /**
      * Seq numbers of earlier events that this event cites as sources

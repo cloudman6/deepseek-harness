@@ -133,6 +133,11 @@
     },
     {
       "doc": "docs/subsystems/core.md",
+      "symbol": "PrepareStepDecision",
+      "source": "packages/core/agent/src/runtime-types.ts"
+    },
+    {
+      "doc": "docs/subsystems/core.md",
       "symbol": "PreStepDecision",
       "source": "packages/core/agent/src/runtime-types.ts"
     },

@@ -11,6 +11,23 @@ import SessionStore, {
 } from '@deepseek-ai/dsh-session'
 import type { CreateSessionOptions, SessionEventType, SessionHeader, SessionSurface, TodoItem } from '@deepseek-ai/dsh-session'
 
+declare module '@deepseek-ai/dsh-session/types' {
+  interface SessionEventMap {
+    /** Test-only normative plugin event. */
+    'fixture.router/decision': { route: string }
+  }
+}
+
+const routeDecisionSchema = {
+  parse(value: unknown): unknown {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)
+      || typeof (value as { route?: unknown }).route !== 'string') {
+      throw new Error('route must be a string')
+    }
+    return value
+  },
+}
+
 describe('Session', () => {
   it('exposes one stable readonly surface view', () => {
     const session = Session.create(SessionId('surface-view'))
@@ -1092,6 +1109,82 @@ describe('Session', () => {
 
 
 describe('SessionStore', () => {
+  it('validates and annotates registered plugin events before append', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SessionStore)
+    ctx.sessions.registerEventNamespace({
+      namespace: 'fixture.router',
+      owner: 'fixture-plugin',
+      version: 1,
+      events: { 'fixture.router/decision': routeDecisionSchema },
+    })
+    const session = ctx.sessions.create(SessionId('registered-event'))
+
+    const event = session.append('fixture.router/decision', { route: 'strong' })
+
+    expect(event.registration).toEqual({ namespace: 'fixture.router', version: 1 })
+    expect(Object.isFrozen(event.registration)).toBe(true)
+    expect(() => session.append('fixture.router/decision', { route: 1 } as never))
+      .toThrow(/fixture\.router\/decision.*payload validation failed.*route must be a string/)
+    expect(session.seq).toBe(1)
+  })
+
+  it('fails closed for unregistered events and releases registrations on disposal', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SessionStore)
+    const session = ctx.sessions.create(SessionId('registration-lifecycle'))
+
+    expect(() => session.append('fixture.router/decision', { route: 'strong' }))
+      .toThrow(/required event type "fixture\.router\/decision" is not registered/)
+    const dispose = ctx.sessions.registerEventNamespace({
+      namespace: 'fixture.router',
+      owner: 'fixture-plugin',
+      version: 1,
+      events: { 'fixture.router/decision': routeDecisionSchema },
+    })
+    session.append('fixture.router/decision', { route: 'strong' })
+    dispose()
+
+    expect(() => session.append('fixture.router/decision', { route: 'standard' }))
+      .toThrow(/required event type "fixture\.router\/decision" is not registered/)
+  })
+
+  it('rejects malformed and conflicting namespace registrations atomically', async () => {
+    const ctx = new Context()
+    await ctx.plugin(SessionStore)
+    const valid = {
+      namespace: 'fixture.router',
+      owner: 'fixture-plugin',
+      version: 1,
+      events: { 'fixture.router/decision': routeDecisionSchema },
+    }
+    ctx.sessions.registerEventNamespace(valid)
+
+    expect(() => ctx.sessions.registerEventNamespace(null as never))
+      .toThrow(/registration must be an object/)
+    expect(() => ctx.sessions.registerEventNamespace({ ...valid, namespace: 'Fixture.Router' }))
+      .toThrow(/namespace must be a lowercase identifier/)
+    expect(() => ctx.sessions.registerEventNamespace(valid)).toThrow(/namespace "fixture\.router" is already registered/)
+    expect(() => ctx.sessions.registerEventNamespace({
+      namespace: 'fixture.other', owner: 'fixture-plugin', version: 1,
+      events: { 'fixture.router/decision': routeDecisionSchema },
+    })).toThrow(/outside namespace "fixture\.other"/)
+    expect(() => ctx.sessions.registerEventNamespace({
+      namespace: 'fixture.builtin', owner: 'fixture-plugin', version: 1,
+      events: { 'turn/start': routeDecisionSchema },
+    })).toThrow(/built-in event type "turn\/start"/)
+  })
+
+  it('rejects plugin registration metadata on built-in seed events', () => {
+    const seed = [{
+      type: 'turn/start', seq: 0, time: 1, data: { turn: 1 },
+      registration: { namespace: 'fixture.router', version: 1 },
+    }] as unknown as SessionEvent[]
+
+    expect(() => Session.create(SessionId('builtin-registration'), seed))
+      .toThrow(/plugin registration metadata to built-in event type "turn\/start"/)
+  })
+
   it('creates sessions, emits session/created and session/event', async () => {
     const ctx = new Context()
     await ctx.plugin(SessionStore)

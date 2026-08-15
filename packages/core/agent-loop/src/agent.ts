@@ -12,6 +12,7 @@ import type {
   AgentStatus,
   CancelOptions,
   InboxTarget,
+  PrepareStepDecision,
   PreStepDecision,
   RequestErrorAction,
 } from '@deepseek-ai/dsh-agent'
@@ -227,6 +228,13 @@ export class ReactLoopAgent implements Agent {
     if (this.phase.kind !== 'running') throw new Error(`agent "${this.id}": pre-step outside running phase`)
     const signal = this.phase.abort.signal
     const claimed = this.inbox.claim(target, position.turn)
+    Object.freeze(claimed)
+    const preparation = await this.dispatch.waterfall(
+      'agent/prepare-step', { messages: claimed, ...position, signal },
+      (): Promise<PrepareStepDecision> => Promise.resolve<PrepareStepDecision>({ kind: 'enter' }),
+    )
+    signal.throwIfAborted()
+    if (preparation.kind === 'reject') return preparation
     const assembly = await this.loopCtx.systemPrompt.assemble(assembleContextFor(this, signal))
     signal.throwIfAborted()
     const sections = renderContextSections(assembly)

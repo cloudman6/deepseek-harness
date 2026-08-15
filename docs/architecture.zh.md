@@ -71,6 +71,7 @@ dsh --profile web --dump-config
 ```text
 turn/start
   claim next-step input plus one queued message
+  -> agent/prepare-step               reject | enter
   assemble prompt sections + tool schemas
   -> agent/pre-step                   reject | enter(messages)
      reject, or a first enter rewritten empty -> close the turn with no step
@@ -85,11 +86,11 @@ turn/start
 turn/end
 ```
 
-`turn/*`、`step/*`、`user/message`、`assistant/*` 和 `tool/*` 是持久会话事件；其余是分属三个事件域的实时扩展点。`agent/pre-step`、`agent/request`、`llm/stream` 和三个 `tools/*` 事件是 waterfall（瀑布式事件），其监听器必须调用 `next()` 才能委托下去；`agent/turn-stopping` 是 serial 事件，没有 `next()`。
+`turn/*`、`step/*`、`user/message`、`assistant/*` 和 `tool/*` 是持久会话事件；其余是分属三个事件域的实时扩展点。`agent/prepare-step`、`agent/pre-step`、`agent/request`、`llm/stream` 和三个 `tools/*` 事件是 waterfall（瀑布式事件），其监听器必须调用 `next()` 才能委托下去；`agent/turn-stopping` 是 serial 事件，没有 `next()`。
 
 输入通过同一个 inbox 到达驱动器。有些消息会立即唤醒它；注入的上下文会留在 inbox 中，直到另一条消息将其唤醒。
 
-`agent/pre-step` 决定模型看到什么。监听器可以改写已领取的消息，也可以直接拒绝它们；首次领取被拒绝或被改写为空时，仍会关闭一个不含步骤的持久轮次，因此日志会记录这次尝试。每个步骤读取插件注册的提示词片段和工具 schema。
+`agent/prepare-step` 在 inbox 领取之后、prompt assembly 之前运行。它可以选择 Host 拥有的步骤配置或拒绝提案，但只能观察冻结的消息批次。随后 `agent/pre-step` 决定模型看到什么：监听器可以改写已领取消息或直接拒绝。任一边界拒绝，或首次进入的批次为空，仍会关闭一个没有步骤的持久轮次，因此日志会记录这次尝试。每个被接受的步骤读取插件注册的提示词片段和工具 schema。
 
 详情见[时序图](agent-lifecycle.md)、[工具流水线](tool-execution-pipeline.md)和[取消与错误恢复](subsystems/core.md#the-agent-handle)。
 

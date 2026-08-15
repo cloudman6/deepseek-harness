@@ -1270,6 +1270,17 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     description: 'In-memory session store (`ctx.sessions`).\n\nPersistence is intentionally not implemented here — persistence plugins subscribe to `session/event` and flush on `session/flush` / dispose.',
     methods: [
       {
+        signature: 'registerEventNamespace(registration: SessionEventNamespaceRegistration): () => void',
+        description: 'Register the complete durable event vocabulary for one plugin namespace. Registration is atomic, exclusive, and disposed with the calling fiber.',
+        parameters: [{ name: 'registration', description: 'owner, exact schema version, and payload schemas.' }],
+        returns: 'a disposer that withdraws this namespace immediately.',
+      },
+      {
+        signature: 'assertRegisteredEventSupported(event: SessionEvent): void',
+        description: 'Validate one required plugin event read from durable storage.',
+        parameters: [{ name: 'event', description: 'normalized event whose registration and payload must match.' }],
+      },
+      {
         signature: 'create(id?: SessionId, options?: CreateSessionOptions): Session',
         description: 'Create a session owned by the calling fiber: disposing that fiber stops event notification and removes the session from the store. `options.seed` populates the session with a copy of those events (replay/fork); `options.meta` attaches creation metadata (validated absolute `cwd`, seed and parent lineage, and delegation depth) as the immutable SessionHeader (the store fills `version`/`id`/`createdAt`).\n\nFor an agent whose session must be torn down IN ORDER with its loop (so the loop\'s final events are published before the store attachment ends), do NOT use this — fold the session lifecycle into the agent\'s own effect via prepare + enter + announce (see `dsh-agent-loop`\'s creation transaction).',
         parameters: [{ name: 'id', description: 'the session id; omitted, the store mints `session-<n>`.' }, { name: 'options', description: 'seed events and/or creation metadata for the header.' }],
@@ -2227,6 +2238,14 @@ export const EVENT_API: readonly EventApiEntry[] = [
     signature: '\'agent/pre-step\'(this: Scoped<Agent>, payload: { agent: Agent; messages: UserMessage[]; turn: number; step: number; signal: AbortSignal }, next: () => Promise<PreStepDecision>): Promise<PreStepDecision>',
     summary: 'Reject a proposed step or replace the messages that enter it.',
     description: 'Reject a proposed step or replace the messages that enter it. Calling `next()` preserves the current messages.',
+    parameters: [{ name: 'payload', description: '.signal - the current turn\'s cancellation signal. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
+  },
+  {
+    name: 'agent/prepare-step',
+    mode: 'waterfall',
+    signature: '\'agent/prepare-step\'(this: Scoped<Agent>, payload: { agent: Agent; messages: readonly UserMessage[]; turn: number; step: number; signal: AbortSignal }, next: () => Promise<PrepareStepDecision>): Promise<PrepareStepDecision>',
+    summary: 'Decide whether a proposed step may proceed after its inbox messages are claimed and before prompt assembly begins.',
+    description: 'Decide whether a proposed step may proceed after its inbox messages are claimed and before prompt assembly begins. This is the route-selection boundary: listeners may update Host-owned step configuration, but may not replace the frozen messages. Calling `next()` enters by default.',
     parameters: [{ name: 'payload', description: '.signal - the current turn\'s cancellation signal. Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.' }],
   },
   {
@@ -3494,6 +3513,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type PrepareSessionOptions = (CreateSessionOptions & {\n    readonly seedSource?: undefined;\n}) | RestoredSessionOptions;',
   },
   {
+    name: 'PrepareStepDecision',
+    declaration: 'export type PrepareStepDecision = {\n    kind: \'reject\';\n} | {\n    kind: \'enter\';\n};',
+  },
+  {
     name: 'PresetOption',
     declaration: 'export interface PresetOption {\n    value: string;\n    name: string;\n    description?: string;\n}',
   },
@@ -3727,7 +3750,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'SessionEvent',
-    declaration: 'export type SessionEvent<T extends SessionEventType = SessionEventType> = {\n    [K in SessionEventType]: {\n        type: K;\n        seq: number;\n        time: number;\n        data: SessionEventMap[K];\n        ignorable?: true;\n    } & (K extends SurfaceEventType ? {\n        sourceEventSeqs?: number[];\n        surfaceOp?: SurfaceOp;\n    } : object);\n}[T];',
+    declaration: 'export type SessionEvent<T extends SessionEventType = SessionEventType> = {\n    [K in SessionEventType]: {\n        type: K;\n        seq: number;\n        time: number;\n        data: SessionEventMap[K];\n        ignorable?: true;\n        registration?: SessionEventRegistrationRef;\n    } & (K extends SurfaceEventType ? {\n        sourceEventSeqs?: number[];\n        surfaceOp?: SurfaceOp;\n    } : object);\n}[T];',
   },
   {
     name: 'SessionEventMap',
@@ -3738,12 +3761,24 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type SessionEventMetadataFilter = Exclude<SessionEventResultFilter, {\n    kind: \'text\';\n}>;',
   },
   {
+    name: 'SessionEventNamespaceRegistration',
+    declaration: 'export interface SessionEventNamespaceRegistration {\n    namespace: string;\n    owner: string;\n    version: number;\n    events: Readonly<Record<string, SessionEventPayloadSchema>>;\n}',
+  },
+  {
+    name: 'SessionEventPayloadSchema',
+    declaration: 'export interface SessionEventPayloadSchema {\n    parse(value: unknown): unknown;\n}',
+  },
+  {
     name: 'SessionEventReadRequest',
     declaration: 'export interface SessionEventReadRequest {\n    sessionId: SessionId;\n    seq: number;\n    before?: number;\n    after?: number;\n}',
   },
   {
     name: 'SessionEventRecord',
     declaration: 'export interface SessionEventRecord {\n    sessionId: SessionId;\n    seq: number;\n    type: SessionEventType;\n    time: number;\n    surface: SessionEventSurface;\n}',
+  },
+  {
+    name: 'SessionEventRegistrationRef',
+    declaration: 'export interface SessionEventRegistrationRef {\n    namespace: string;\n    version: number;\n}',
   },
   {
     name: 'SessionEventResultFilter',

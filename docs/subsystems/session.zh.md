@@ -228,6 +228,12 @@ type SessionEvent<T extends SessionEventType = SessionEventType> = {
      * inconvenience) rather than silently resuming a gutted session.
      */
     ignorable?: true
+    /**
+     * Runtime namespace/version that validated a required plugin-owned event.
+     * Built-in events do not carry this field. A cold reader must possess the
+     * exact registration before reconstructing a required plugin event.
+     */
+    registration?: SessionEventRegistrationRef
   } & (K extends SurfaceEventType ? {
     /**
      * Seq numbers of earlier events that this event cites as sources
@@ -594,7 +600,9 @@ interface TurnEndReasonMap {
 
 ## 插件贡献的仅日志事件
 
-插件可以通过 declaration merging 添加额外的 `SessionEventMap` 类型。这些是**仅日志**事件：不是 `SurfaceEventType`（不携带 `surfaceOp`，不参与派生历史）。事件所有方决定它们属于一个开放的执行轮次，还是可以独立位于轮次之间，并在自己的不变量配套插件中强制所需关系。生成的[持久化日志事件目录](../persistence-catalog.md)会列出每个核心或插件贡献的事件，以及其 payload、surface 标记和声明位置；压缩 seam 的 `compaction/*` 语义在 [compaction.md](compaction.md) 中讨论。
+插件可以通过 declaration merging 添加额外的 `SessionEventMap` 类型。这些是**仅日志**事件：不是 `SurfaceEventType`（不携带 `surfaceOp`，不参与派生历史）。仓库内类型会进入生成的内建目录。仓库外插件还要通过 `ctx.sessions.registerEventNamespace({ namespace, owner, version, events })` 在 runtime 注册完整 namespace；每个 schema 暴露 `parse(unknown)`。已附加 Session 实时 append 必需的仓库外类型时，若注册不存在或拒绝该 JSON snapshot，会在修改日志前失败；成功时记录 `registration: { namespace, version }`。冷重建要求完全相同的版本并再次校验；插件代码缺失、版本不匹配、类型未声明或 schema 失败都会得到“不支持格式”拒绝。Schema 返回值不会替换持久数据。显式 ignorable 的未知事件保持原有跳过约定。
+
+事件所有方决定记录属于一个开放执行轮次，还是可以独立位于轮次之间，并在自己的不变量配套插件中强制所需关系。生成的[持久化日志事件目录](../persistence-catalog.md)会列出每个仓库内事件，以及其 payload、surface 标记和声明位置；压缩 seam 的 `compaction/*` 语义在 [compaction.md](compaction.md) 中讨论。
 
 如果同一个插件事件族中的多条事件要组装成一个 Web Client Conversation Node，该事件族中的每条 start、update、result、resource 或 interruption 事件都必须携带或独立推导出同一个稳定业务 id。此要求只约束需要关联的 Node 事件族，并不要求每条 Session 事件都有业务 id；Client 因此无须根据相邻关系猜测归属，也无须扫描历史。参见 [Conversation Node 实操手册](../cookbook/adding-a-conversation-node.md)。
 
@@ -623,6 +631,20 @@ In-memory session store (`ctx.sessions`).
 Persistence is intentionally not implemented here — persistence plugins subscribe to `session/event` and flush on `session/flush` / dispose.
 
 ```ts cordis-catalog
+/**
+ * Register the complete durable event vocabulary for one plugin namespace.
+ * Registration is atomic, exclusive, and disposed with the calling fiber.
+ * @param registration - owner, exact schema version, and payload schemas.
+ * @returns a disposer that withdraws this namespace immediately.
+ */
+registerEventNamespace(registration: SessionEventNamespaceRegistration): () => void
+
+/**
+ * Validate one required plugin event read from durable storage.
+ * @param event - normalized event whose registration and payload must match.
+ */
+assertRegisteredEventSupported(event: SessionEvent): void
+
 /**
  * Create a session owned by the calling fiber: disposing that fiber stops
  * event notification and removes the session from the store. `options.seed`
@@ -748,7 +770,7 @@ fork(source: SessionForkSource, boundary?: number, childSessionId?: SessionId): 
 
 Types: [CreateSessionOptions](persistence.md) · [PrepareSessionOptions](persistence.md) · [SessionId](core.md)
 
-Source: [`packages/core/session/src/index.ts:792`](../../packages/core/session/src/index.ts)
+Source: [`packages/core/session/src/index.ts:838`](../../packages/core/session/src/index.ts)
 
 <a id="session-events"></a>
 
@@ -777,7 +799,7 @@ Creation announcement during session publication. A synchronous throw vetoes and
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/session/src/index.ts:54`](../../packages/core/session/src/index.ts)
+Source: [`packages/core/session/src/index.ts:55`](../../packages/core/session/src/index.ts)
 
 <a id="sessiondisposed--emit"></a>
 
@@ -800,7 +822,7 @@ Emitted once when an announced session leaves the store, including publication r
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/session/src/index.ts:64`](../../packages/core/session/src/index.ts)
+Source: [`packages/core/session/src/index.ts:65`](../../packages/core/session/src/index.ts)
 
 <a id="sessionevent--emit"></a>
 
@@ -825,7 +847,7 @@ Post-commit, fire-and-forget append feed. The listener snapshot resolves before 
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/session/src/index.ts:76`](../../packages/core/session/src/index.ts)
+Source: [`packages/core/session/src/index.ts:77`](../../packages/core/session/src/index.ts)
 
 <a id="sessionflush--parallel"></a>
 
@@ -847,5 +869,5 @@ Awaited parallel durability checkpoint: every listener runs and the caller await
 
 Types: [Scoped](scope.md)
 
-Source: [`packages/core/session/src/index.ts:85`](../../packages/core/session/src/index.ts)
+Source: [`packages/core/session/src/index.ts:86`](../../packages/core/session/src/index.ts)
 <!-- END GENERATED cordis-surface -->

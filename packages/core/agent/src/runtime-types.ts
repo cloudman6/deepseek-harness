@@ -49,6 +49,11 @@ export interface CancelOptions {
  */
 export type AgentStatus = 'idle' | 'running'
 
+/** Whether the loop may assemble a prompt for a proposed step. */
+export type PrepareStepDecision =
+  | { kind: 'reject' }
+  | { kind: 'enter' }
+
 /** Whether and with which messages the loop enters a proposed step. */
 export type PreStepDecision =
   | { kind: 'reject' }
@@ -217,6 +222,20 @@ declare module '@deepseek-ai/cordis' {
     'agent/session-start'(this: Scoped<Agent>, payload: { agent: Agent; source: SessionStartSource }): void
 
     // ---- the machine's extension points ----
+    /**
+     * Decide whether a proposed step may proceed after its inbox messages are
+     * claimed and before prompt assembly begins. This is the route-selection
+     * boundary: listeners may update Host-owned step configuration, but may
+     * not replace the frozen messages. Calling `next()` enters by default.
+     * @param payload.agent - the agent proposing the step.
+     * @param payload.messages - frozen messages claimed for this proposal.
+     * @param payload.turn - the turn that will own the step.
+     * @param payload.step - the step proposed by the loop.
+     * @param payload.signal - the current turn's cancellation signal.
+     * Scope-filtered dispatch (`@deepseek-ai/dsh-scope`): agent-scoped listeners receive only that agent.
+     * @mode waterfall
+     */
+    'agent/prepare-step'(this: Scoped<Agent>, payload: { agent: Agent; messages: readonly UserMessage[]; turn: number; step: number; signal: AbortSignal }, next: () => Promise<PrepareStepDecision>): Promise<PrepareStepDecision>
     /**
      * Reject a proposed step or replace the messages that enter it. Calling
      * `next()` preserves the current messages.

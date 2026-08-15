@@ -9,11 +9,31 @@ import SessionStore, { SESSION_FORMAT_VERSION, Session, SessionId, SessionPrepar
 import type { SessionEvent, SessionHeader } from '@deepseek-ai/dsh-session'
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime from '@deepseek-ai/dsh-tools'
-import AgentRegistry, { type Agent } from '@deepseek-ai/dsh-agent'
+import AgentRegistry, { installModelSelection, type Agent } from '@deepseek-ai/dsh-agent'
 
 import JsonlSessionPersistence from '@deepseek-ai/dsh-session-persistence-jsonl'
 import AgentLoop from '@deepseek-ai/dsh-agent-loop'
 import { MockAdapter, textResponse } from './mock-adapter.ts'
+
+declare module '@deepseek-ai/dsh-session/types' {
+  interface SessionEventMap {
+    /** Test-only route decision persisted by the pre-assembly probe. */
+    'fixture.route-probe/decision': { route: string; turn: number; step: number }
+  }
+}
+
+const routeDecisionSchema = {
+  parse(value: unknown): unknown {
+    const decision = value as { route?: unknown; turn?: unknown; step?: unknown } | null
+    if (decision === null || typeof decision !== 'object'
+      || typeof decision.route !== 'string'
+      || !Number.isSafeInteger(decision.turn)
+      || !Number.isSafeInteger(decision.step)) {
+      throw new Error('invalid route decision')
+    }
+    return value
+  },
+}
 
 const dirs: string[] = []
 afterEach(async () => { for (const d of dirs.splice(0)) await rm(d, { recursive: true, force: true }) })
@@ -89,6 +109,49 @@ function throwUnknown(value: unknown): never {
 }
 
 describe('the session-persistence Agent Note: AgentLoop factory create/resume', () => {
+  it('persists a pre-assembly route decision and reloads it through the same runtime contract', async () => {
+    const sessionId = SessionId('route-contract-probe')
+    const adapter = new MockAdapter([textResponse('routed')])
+    const { ctx: ctx1, root } = await persistentHarness(adapter)
+    ctx1.sessions.registerEventNamespace({
+      namespace: 'fixture.route-probe', owner: 'fixture-plugin', version: 1,
+      events: { 'fixture.route-probe/decision': routeDecisionSchema },
+    })
+    const agent = ctx1.agentLoop.create(sessionId, { provider: 'mock', model: 'weak' })
+    const selection = {
+      current: { provider: 'mock', model: 'weak' },
+      assembled: undefined,
+    }
+    installModelSelection(agent.ctx, selection)
+    agent.ctx.on('agent/prepare-step', async ({ turn, step }, next) => {
+      selection.current = { provider: 'mock', model: 'strong' }
+      agent.session.append('fixture.route-probe/decision', { route: 'strong', turn, step })
+      return next()
+    })
+
+    agent.followup(createUserMessage({ content: [{ type: 'text', text: 'route me' }], source: { kind: 'user' } }))
+    await waitForIdle(ctx1, agent)
+    expect(adapter.requests[0]?.model).toBe('strong')
+    await ctx1.sessions.flush(agent.session)
+    await ctx1.fiber.dispose()
+
+    const ctx2 = await mountPersistentHarness(root, new MockAdapter([textResponse('unused')]))
+    await expect(ctx2.sessionPersistence.load(sessionId))
+      .rejects.toThrow(/namespace "fixture\.route-probe" v1 is not registered/)
+    ctx2.sessions.registerEventNamespace({
+      namespace: 'fixture.route-probe', owner: 'fixture-plugin', version: 1,
+      events: { 'fixture.route-probe/decision': routeDecisionSchema },
+    })
+    const loaded = await ctx2.sessionPersistence.load(sessionId)
+    expect(loaded.events.find(event => event.type === 'fixture.route-probe/decision')).toMatchObject({
+      data: { route: 'strong', turn: 1, step: 1 },
+      registration: { namespace: 'fixture.route-probe', version: 1 },
+    })
+    expect(loaded.events.find(event => event.type === 'request/header'))
+      .toMatchObject({ data: { header: { config: { provider: 'mock', model: 'strong' } } } })
+    await ctx2.fiber.dispose()
+  })
+
   it('resumes a pre-react-loop session including pre-identity message events', async () => {
     const sessionId = SessionId('pre-identity-resume')
     const first = await persistentHarness(new MockAdapter([]))

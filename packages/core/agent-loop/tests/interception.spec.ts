@@ -10,7 +10,9 @@ import SessionStore, {
 import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { defineContentToolFixture, type PostToolDecision, type PreToolDecision } from '@deepseek-ai/dsh-tools'
 import AgentRegistry, {
+  installModelSelection,
   type Agent,
+  type PrepareStepDecision,
   type PreStepDecision,
   type SessionStartSource,
 } from '@deepseek-ai/dsh-agent'
@@ -57,6 +59,114 @@ function send(agent: Agent, text: string) {
 function events(agent: Agent): SessionEvent[] {
   return [...agent.session.events]
 }
+
+describe('agent/prepare-step', () => {
+  it('runs after inbox claim and before prompt assembly', async () => {
+    const adapter = new MockAdapter([textResponse('ok')])
+    const ctx = await harness(adapter)
+    const agent = ctx.agentLoop.create(SessionId('prepare-order'), { provider: 'mock', model: 'mock' })
+    const order: string[] = []
+
+    ctx.on('agent/inbox/claimed', ({ agent: subject }) => {
+      if (subject === agent) order.push('claim')
+    })
+    ctx.on('agent/prepare-step', async ({ agent: subject, messages, turn, step }, next) => {
+      if (subject !== agent) return next()
+      order.push('prepare')
+      expect(messages).toHaveLength(1)
+      expect(Object.isFrozen(messages)).toBe(true)
+      expect({ turn, step }).toEqual({ turn: 1, step: 1 })
+      return next()
+    })
+    ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+      if (context.agent === agent) order.push('assemble')
+      return next()
+    })
+    ctx.on('agent/pre-step', async ({ agent: subject }, next) => {
+      if (subject === agent) order.push('pre-step')
+      return next()
+    })
+
+    send(agent, 'hello')
+    await agent.whenIdle()
+
+    expect(order).toEqual(['claim', 'prepare', 'assemble', 'pre-step'])
+  })
+
+  it('rejects before prompt assembly, step creation, and model request', async () => {
+    const adapter = new MockAdapter([textResponse('should not run')])
+    const ctx = await harness(adapter)
+    const agent = ctx.agentLoop.create(SessionId('prepare-reject'), { provider: 'mock', model: 'mock' })
+    let assemblies = 0
+
+    ctx.on('agent/prepare-step', async ({ agent: subject }): Promise<PrepareStepDecision> =>
+      subject === agent ? { kind: 'reject' } : { kind: 'enter' })
+    ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+      if (context.agent === agent) assemblies += 1
+      return next()
+    })
+
+    send(agent, 'blocked')
+    await agent.whenIdle()
+
+    expect(assemblies).toBe(0)
+    expect(adapter.requests).toHaveLength(0)
+    expect(events(agent).some(event => event.type === 'step/start')).toBe(false)
+    expect(events(agent).find(event => event.type === 'turn/end'))
+      .toMatchObject({ data: { reason: { kind: 'blocked' } } })
+  })
+
+  it('honors cancellation before prompt assembly begins', async () => {
+    const adapter = new MockAdapter([textResponse('should not run')])
+    const ctx = await harness(adapter)
+    const agent = ctx.agentLoop.create(SessionId('prepare-cancel'), { provider: 'mock', model: 'mock' })
+    let assemblies = 0
+    ctx.on('agent/prepare-step', async ({ agent: subject }, next) => {
+      if (subject === agent) subject.cancel({ kind: 'user' })
+      return next()
+    })
+    ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+      if (context.agent === agent) assemblies += 1
+      return next()
+    })
+
+    send(agent, 'cancel before assembly')
+    await agent.whenIdle()
+
+    expect(assemblies).toBe(0)
+    expect(adapter.requests).toHaveLength(0)
+    expect(events(agent).find(event => event.type === 'turn/end'))
+      .toMatchObject({ data: { reason: { kind: 'aborted', reason: { kind: 'user' } } } })
+  })
+
+  it('lets routing select once before assembly and keeps that selection for the request', async () => {
+    const adapter = new MockAdapter([textResponse('ok')])
+    const ctx = await harness(adapter)
+    const agent = ctx.agentLoop.create(SessionId('prepare-selection'), { provider: 'mock', model: 'weak' })
+    const selection = {
+      current: { provider: 'mock', model: 'weak' },
+      assembled: undefined,
+    }
+    let assembledModel: unknown
+    ctx.on('system-prompt/assemble', async (_assembly, context, next) => {
+      const assembled = await next()
+      if (context.agent === agent) assembledModel = assembled.variables.model
+      return assembled
+    })
+    installModelSelection(agent.ctx, selection)
+    ctx.on('agent/prepare-step', async ({ agent: subject }, next) => {
+      if (subject === agent) selection.current = { provider: 'mock', model: 'strong' }
+      return next()
+    })
+
+    send(agent, 'route me')
+    await agent.whenIdle()
+
+    expect(adapter.requests[0]?.model).toBe('strong')
+    expect(assembledModel).toBe('strong')
+    expect(selection.assembled).toEqual({ provider: 'mock', model: 'strong' })
+  })
+})
 
 describe('agent/pre-step', () => {
   it('enter (default via next) records the user/message unchanged', async () => {

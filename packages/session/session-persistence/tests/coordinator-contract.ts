@@ -40,6 +40,16 @@ export interface CoordinatorFixture {
 const WORK = '/w'
 const OTHER = '/other'
 
+const pluginEventSchema = {
+  parse(value: unknown): unknown {
+    if (value === null || typeof value !== 'object' || Array.isArray(value)
+      || typeof (value as { route?: unknown }).route !== 'string') {
+      throw new Error('route must be a string')
+    }
+    return value
+  },
+}
+
 /** Append a whole event log to a live session, event by event (drives session/event). */
 function send(session: Session, events: readonly SessionEvent[]): void {
   appendLog(session, events)
@@ -1379,6 +1389,93 @@ export function runCoordinatorContract(name: string, makeFixture: () => Promise<
         ])
         const loaded = await ctx.sessionPersistence.load(skippable.id)
         expect(loaded.events.some(event => (event.type as string) === 'future/event')).toBe(true)
+      } finally {
+        await fiber.dispose()
+        await fix.cleanup()
+      }
+    })
+
+    it('loads required plugin events only through an exact live namespace registration', async () => {
+      const fix = await makeFixture()
+      const { ctx, fiber } = await freshCtx(fix)
+      try {
+        const m = meta('registered-plugin-event', WORK)
+        await ctx.sessionPersistence.create(m)
+        await ctx.sessionPersistence.append(m.id, [
+          ...oneTurnLog(),
+          {
+            type: 'fixture.router/decision', seq: oneTurnLog().length, time: 99,
+            data: { route: 'strong' },
+            registration: { namespace: 'fixture.router', version: 1 },
+          } as unknown as SessionEvent,
+        ])
+
+        await expect(ctx.sessionPersistence.load(m.id))
+          .rejects.toThrow(/namespace "fixture\.router" v1 is not registered/)
+        const dispose = ctx.sessions.registerEventNamespace({
+          namespace: 'fixture.router', owner: 'fixture-plugin', version: 1,
+          events: { 'fixture.router/decision': pluginEventSchema },
+        })
+        const loaded = await ctx.sessionPersistence.load(m.id)
+        expect(loaded.events.at(-1)).toMatchObject({
+          type: 'fixture.router/decision',
+          data: { route: 'strong' },
+          registration: { namespace: 'fixture.router', version: 1 },
+        })
+        dispose()
+      } finally {
+        await fiber.dispose()
+        await fix.cleanup()
+      }
+    })
+
+    it('refuses plugin event version and payload mismatches before reconstruction', async () => {
+      const fix = await makeFixture()
+      const { ctx, fiber } = await freshCtx(fix)
+      try {
+        ctx.sessions.registerEventNamespace({
+          namespace: 'fixture.router', owner: 'fixture-plugin', version: 2,
+          events: { 'fixture.router/decision': pluginEventSchema },
+        })
+        const incompatible = meta('plugin-version-mismatch', WORK)
+        await ctx.sessionPersistence.create(incompatible)
+        await ctx.sessionPersistence.append(incompatible.id, [{
+          type: 'fixture.router/decision', seq: 0, time: 1,
+          data: { route: 'strong' },
+          registration: { namespace: 'fixture.router', version: 1 },
+        } as unknown as SessionEvent])
+        await expect(ctx.sessionPersistence.load(incompatible.id))
+          .rejects.toThrow(/requires namespace "fixture\.router" v1.*runtime provides v2/)
+
+        const invalid = meta('plugin-payload-mismatch', WORK)
+        await ctx.sessionPersistence.create(invalid)
+        await ctx.sessionPersistence.append(invalid.id, [{
+          type: 'fixture.router/decision', seq: 0, time: 1,
+          data: { route: 1 },
+          registration: { namespace: 'fixture.router', version: 2 },
+        } as unknown as SessionEvent])
+        await expect(ctx.sessionPersistence.load(invalid.id))
+          .rejects.toThrow(/payload validation failed.*route must be a string/)
+
+        const unknownType = meta('plugin-unknown-type', WORK)
+        await ctx.sessionPersistence.create(unknownType)
+        await ctx.sessionPersistence.append(unknownType.id, [{
+          type: 'fixture.router/unknown', seq: 0, time: 1,
+          data: { route: 'strong' },
+          registration: { namespace: 'fixture.router', version: 2 },
+        } as unknown as SessionEvent])
+        await expect(ctx.sessionPersistence.load(unknownType.id))
+          .rejects.toThrow(/event type "fixture\.router\/unknown" is not declared/)
+
+        const malformed = meta('plugin-malformed-registration', WORK)
+        await ctx.sessionPersistence.create(malformed)
+        await ctx.sessionPersistence.append(malformed.id, [{
+          type: 'fixture.router/decision', seq: 0, time: 1,
+          data: { route: 'strong' },
+          registration: { namespace: 'fixture.router', version: 0 },
+        } as unknown as SessionEvent])
+        await expect(ctx.sessionPersistence.load(malformed.id))
+          .rejects.toThrow(/invalid registration metadata/)
       } finally {
         await fiber.dispose()
         await fix.cleanup()

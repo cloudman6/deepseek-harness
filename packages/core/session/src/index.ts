@@ -13,8 +13,9 @@ import { scopeOf, scopeTarget } from '@deepseek-ai/dsh-scope'
 import type { Scoped } from '@deepseek-ai/dsh-scope'
 import type { Message } from '@deepseek-ai/dsh-llm'
 import { SESSION_FORMAT_VERSION, SessionId } from './types.ts'
+import { KNOWN_SESSION_EVENT_TYPES } from './known-event-types.ts'
 import type { TypertLookup } from '@deepseek-ai/dsh-typert-protocol'
-import type { CreateSessionOptions, EpochHeader, PrepareSessionOptions, RequestContext, SessionEvent, SessionEventMap, SessionEventType, SessionHeader, SurfaceIntent, SurfaceEventType } from './types.ts'
+import type { CreateSessionOptions, EpochHeader, PrepareSessionOptions, RequestContext, SessionEvent, SessionEventMap, SessionEventNamespaceRegistration, SessionEventPayloadSchema, SessionEventRegistrationRef, SessionEventType, SessionHeader, SurfaceIntent, SurfaceEventType } from './types.ts'
 import { snapshotJsonValue } from './json.ts'
 import { deriveEventMessage, SurfaceManager } from './surface.ts'
 import type { SessionSurface } from './surface.ts'
@@ -32,7 +33,7 @@ export type { ChunkRow, StorageRecord } from './chunk-rows.ts'
 export type { SessionSurface, SurfaceFoldReplacement, SurfaceFoldResult } from './surface.ts'
 export { deriveEventMessage, foldSurface, isAppendSurfaceEvent, isReplacementSurfaceEvent, isSurfaceEvent, isSurfaceEligibleType } from './surface.ts'
 export { canonicalHeader, foldRequestHeader, headerEquals } from './request-header.ts'
-export { KNOWN_SESSION_EVENT_TYPES } from './known-event-types.ts'
+export { KNOWN_SESSION_EVENT_TYPES }
 
 declare module '@deepseek-ai/cordis' {
   interface Context {
@@ -224,6 +225,7 @@ function assertSessionEventEnvelope(value: Record<string, unknown>, index: numbe
       case 'surfaceOp':
       case 'sourceEventSeqs':
       case 'ignorable':
+      case 'registration':
         break
       default:
         throw new Error(`seed event at index ${index} has an invalid event envelope`)
@@ -238,6 +240,23 @@ function assertSessionEventEnvelope(value: Record<string, unknown>, index: numbe
     || event['data'] === undefined
     || (event['ignorable'] !== undefined && event['ignorable'] !== true)) {
     throw new Error(`seed event at index ${index} has an invalid event envelope`)
+  }
+  const registration = event['registration']
+  if (registration !== undefined) {
+    if (registration === null || typeof registration !== 'object' || Array.isArray(registration)) {
+      throw new Error(`seed event at index ${index} has invalid registration metadata`)
+    }
+    const record = registration as Record<string, unknown>
+    if (Object.keys(record).length !== 2
+      || typeof record['namespace'] !== 'string'
+      || typeof record['version'] !== 'number'
+      || !Number.isSafeInteger(record['version'])
+      || record['version'] < 1) {
+      throw new Error(`seed event at index ${index} has invalid registration metadata`)
+    }
+  }
+  if (KNOWN_SESSION_EVENT_TYPES.has(type) && registration !== undefined) {
+    throw new Error(`seed event at index ${index} attaches plugin registration metadata to built-in event type "${type}"`)
   }
   switch (type) {
     case 'request/header':
@@ -408,11 +427,36 @@ interface SessionEntry {
   announcing: boolean
   appending: boolean
   detachRequested: boolean
+  registrationFor(type: string, data: unknown): SessionEventRegistrationRef | undefined
   detach(): void
 }
 
 /** Store attachment for the append path; module-private to keep Session store-agnostic publicly. */
 const attachments = new WeakMap<Session, SessionEntry>()
+
+interface RegisteredEventNamespace {
+  readonly namespace: string
+  readonly owner: string
+  readonly version: number
+  readonly types: readonly string[]
+}
+
+interface RegisteredEventType {
+  readonly namespace: string
+  readonly owner: string
+  readonly version: number
+  readonly schema: SessionEventPayloadSchema
+}
+
+/** Run a registered payload schema without allowing it to transform durable data. */
+function validateRegisteredPayload(type: string, schema: SessionEventPayloadSchema, data: unknown): void {
+  try {
+    schema.parse(data)
+  } catch (error: unknown) {
+    const detail = error instanceof Error ? error.message : String(error)
+    throw new Error(`session event "${type}" payload validation failed: ${detail}`, { cause: error })
+  }
+}
 
 /**
  * An event-sourced session: an append-only log of {@link SessionEvent}s.
@@ -624,11 +668,13 @@ export class Session {
     if (entry?.appending) {
       throw new Error('session append cannot reenter while another append is being published')
     }
+    const registration = entry?.registrationFor(type, dataSnapshot)
     const event = deepFreeze({
       type,
       seq: this.log.length,
       time: Date.now(),
       data: dataSnapshot,
+      ...registration === undefined ? {} : { registration },
       ...(surfaceMetadataSnapshot as { surfaceOp?: unknown; sourceEventSeqs?: unknown }),
     } as unknown as SessionEvent<T>)
     this.surfaceManager.validateNext(event as SessionEvent)
@@ -792,6 +838,8 @@ export class SessionForkError extends Error {
 export class SessionStore extends Service {
   private store = new Map<SessionId, SessionEntry>()
   private counter = 0
+  private eventNamespaces = new Map<string, RegisteredEventNamespace>()
+  private eventTypes = new Map<string, RegisteredEventType>()
 
   constructor(ctx: Context) {
     super(ctx, 'sessions')
@@ -804,6 +852,127 @@ export class SessionStore extends Service {
         resolve: sessionId => this.get(sessionId),
       })
     })
+  }
+
+  /**
+   * Register the complete durable event vocabulary for one plugin namespace.
+   * Registration is atomic, exclusive, and disposed with the calling fiber.
+   * @param registration - owner, exact schema version, and payload schemas.
+   * @returns a disposer that withdraws this namespace immediately.
+   */
+  registerEventNamespace(registration: SessionEventNamespaceRegistration): () => void {
+    const input: unknown = registration
+    if (input === null || typeof input !== 'object' || Array.isArray(input)) {
+      throw new TypeError('session event namespace registration must be an object')
+    }
+    const record = input as Record<string, unknown>
+    const namespace = record['namespace']
+    const owner = record['owner']
+    const version = record['version']
+    if (typeof namespace !== 'string') {
+      throw new TypeError('session event namespace must be a string')
+    }
+    if (!/^[a-z0-9](?:[a-z0-9._-]*[a-z0-9])?$/.test(namespace)) {
+      throw new TypeError('session event namespace must be a lowercase identifier using letters, digits, dot, underscore, or hyphen')
+    }
+    if (typeof owner !== 'string') {
+      throw new TypeError('session event namespace owner must be a string')
+    }
+    if (owner.length === 0 || owner.trim() !== owner) {
+      throw new TypeError('session event namespace owner must be a non-empty trimmed string')
+    }
+    if (typeof version !== 'number' || !Number.isSafeInteger(version) || version < 1) {
+      throw new TypeError('session event namespace version must be a positive safe integer')
+    }
+    const events: unknown = record['events']
+    if (events === null || typeof events !== 'object' || Array.isArray(events)) {
+      throw new TypeError('session event namespace events must be a record')
+    }
+    const candidates: Array<[string, RegisteredEventType]> = []
+    for (const [type, candidateSchema] of Object.entries(events as Record<string, unknown>)) {
+      if (KNOWN_SESSION_EVENT_TYPES.has(type)) {
+        throw new Error(`cannot register built-in event type "${type}"`)
+      }
+      if (!type.startsWith(`${namespace}/`) || type.length === namespace.length + 1) {
+        throw new Error(`session event type "${type}" is outside namespace "${namespace}"`)
+      }
+      if (candidateSchema === null || typeof candidateSchema !== 'object'
+        || typeof (candidateSchema as { parse?: unknown }).parse !== 'function') {
+        throw new TypeError(`session event type "${type}" must provide a parse(value) schema`)
+      }
+      const schema = candidateSchema as SessionEventPayloadSchema
+      candidates.push([type, { namespace, owner, version, schema }])
+    }
+    if (candidates.length === 0) {
+      throw new TypeError(`session event namespace "${namespace}" must register at least one event type`)
+    }
+
+    const dispose = this.ctx.effect(function* (this: SessionStore) {
+      if (this.eventNamespaces.has(namespace)) {
+        throw new Error(`session event namespace "${namespace}" is already registered`)
+      }
+      for (const [type] of candidates) {
+        if (this.eventTypes.has(type)) throw new Error(`session event type "${type}" is already registered`)
+      }
+      const namespaceRecord: RegisteredEventNamespace = {
+        namespace,
+        owner,
+        version,
+        types: Object.freeze(candidates.map(([type]) => type)),
+      }
+      this.eventNamespaces.set(namespace, namespaceRecord)
+      for (const [type, entry] of candidates) this.eventTypes.set(type, entry)
+      yield () => {
+        if (this.eventNamespaces.get(namespace) !== namespaceRecord) return
+        this.eventNamespaces.delete(namespace)
+        for (const type of namespaceRecord.types) this.eventTypes.delete(type)
+      }
+    }.bind(this), 'sessions.registerEventNamespace()')
+    return () => void dispose()
+  }
+
+  /**
+   * Validate one required plugin event read from durable storage.
+   * @param event - normalized event whose registration and payload must match.
+   */
+  assertRegisteredEventSupported(event: SessionEvent): void {
+    if (KNOWN_SESSION_EVENT_TYPES.has(event.type) || event.ignorable === true) return
+    const reference: unknown = event.registration
+    if (reference === undefined) {
+      throw new Error(`event type "${event.type}" is unknown to this harness and not marked ignorable; refusing to interpret the log — it was likely written by a newer harness`)
+    }
+    const referenceRecord = reference as Record<string, unknown> | null
+    if (referenceRecord === null || typeof referenceRecord !== 'object'
+      || typeof referenceRecord['namespace'] !== 'string'
+      || !Number.isSafeInteger(referenceRecord['version'])
+      || (referenceRecord['version'] as number) < 1) {
+      throw new Error(`event type "${event.type}" has invalid registration metadata`)
+    }
+    const referenceNamespace = referenceRecord['namespace']
+    const referenceVersion = referenceRecord['version'] as number
+    const namespace = this.eventNamespaces.get(referenceNamespace)
+    if (namespace === undefined) {
+      throw new Error(`event type "${event.type}" requires namespace "${referenceNamespace}" v${referenceVersion}; namespace "${referenceNamespace}" v${referenceVersion} is not registered`)
+    }
+    if (namespace.version !== referenceVersion) {
+      throw new Error(`event type "${event.type}" requires namespace "${referenceNamespace}" v${referenceVersion}, but runtime provides v${namespace.version}`)
+    }
+    const registered = this.eventTypes.get(event.type)
+    if (registered === undefined || registered.namespace !== referenceNamespace) {
+      throw new Error(`event type "${event.type}" is not declared by registered namespace "${referenceNamespace}" v${referenceVersion}`)
+    }
+    validateRegisteredPayload(event.type, registered.schema, event.data)
+  }
+
+  /** Resolve and validate runtime metadata for one attached live append. */
+  private registrationFor(type: string, data: unknown): SessionEventRegistrationRef | undefined {
+    if (KNOWN_SESSION_EVENT_TYPES.has(type)) return undefined
+    const registered = this.eventTypes.get(type)
+    if (registered === undefined) {
+      throw new Error(`required event type "${type}" is not registered with SessionStore`)
+    }
+    validateRegisteredPayload(type, registered.schema, data)
+    return { namespace: registered.namespace, version: registered.version }
   }
 
   /**
@@ -926,6 +1095,7 @@ export class SessionStore extends Service {
       announcing: false,
       appending: false,
       detachRequested: false,
+      registrationFor: (type, data) => this.registrationFor(type, data),
       detach: () => { this.detachEntered(entry) },
     }
     this.store.set(id, entry)
