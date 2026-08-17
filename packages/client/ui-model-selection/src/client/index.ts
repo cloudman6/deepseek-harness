@@ -21,6 +21,8 @@ import type {} from '@deepseek-ai/dsh-client-ui-conversation/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelDirectoryState } from './directory.ts'
+import { autoRouteChangeDefinition } from './auto-route-change.ts'
+import { AutoRouteChangeNodeView } from './AutoRouteChangeNodeView.tsx'
 import { ModelDirectoryResolver } from './service.ts'
 import type { ModelSelectInjected } from './slots.ts'
 import { ModelSelect } from './ModelSelect.tsx'
@@ -97,7 +99,7 @@ function selectionOf(state: ModelDirectoryState, id: string): ModelSelection | u
 const NS = 'model'
 
 /** Required services: the contribution registry, the seat's slot registry, locale, and the service's own faces. */
-export const inject = ['commandUi', 'connection', 'locale', 'sessions', 'slots', 'remote', 'remote.commands']
+export const inject = ['commandUi', 'connection', 'conversationEvents', 'locale', 'sessions', 'slots', 'remote', 'remote.commands']
 
 /**
  * Client plugin body: mount ModelDirectoryResolver, register the `model` dictionaries,
@@ -107,6 +109,7 @@ export const inject = ['commandUi', 'connection', 'locale', 'sessions', 'slots',
  */
 export function apply(ctx: ClientContext): void {
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-model-selection: dictionaries')
+  ctx.conversationEvents.register(autoRouteChangeDefinition)
 
   // Non-slot faces (the command description, the popup option builder) read
   // through the bound translate; the seat component reads the standard seat.
@@ -184,4 +187,10 @@ export function apply(ctx: ClientContext): void {
       },
     }, ModelSelect))
   })
+
+  ctx.slots.inject('conversation.chat.node', () => ctx.slots.register({
+    name: 'conversation.chat.node',
+    key: 'auto-route-change',
+    locale: NS,
+  }, AutoRouteChangeNodeView))
 }

@@ -62,7 +62,24 @@ const SWITCHED_AUTO: AutoProjection = {
   previousDecision: AUTO.decision,
 }
 
-const SWITCH_MARKER = 'experimental-auto-mode-switch'
+const SELECTION_EVENT = 'dsh-auto-mode/selection'
+
+function selectionData(decision: NonNullable<AutoProjection['decision']>) {
+  return {
+    schemaVersion: 1,
+    mode: 'auto',
+    evidenceStatus: 'experimental-unadmitted' as const,
+    ...decision,
+  }
+}
+
+function appendAutoSelection(
+  agent: { session: unknown },
+  decision: NonNullable<AutoProjection['decision']>,
+): void {
+  (agent.session as { append(type: string, data: ReturnType<typeof selectionData>): void })
+    .append(SELECTION_EVENT, selectionData(decision))
+}
 
 describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () => {
   let scaffold: WebScaffold
@@ -89,13 +106,29 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
       schema: { parse: value => value as AutoProjection },
       init: () => AUTO,
       apply: (state, event) => {
-        const candidate = event as { type?: unknown; data?: { title?: unknown } }
-        return candidate.type === 'session/title' && candidate.data?.title === SWITCH_MARKER
-          ? SWITCHED_AUTO
-          : state
+        const candidate = event as { type?: unknown; data?: unknown }
+        if (candidate.type !== SELECTION_EVENT) return state
+        const data = candidate.data as { model?: unknown }
+        return data.model === SWITCHED_AUTO.decision?.model ? SWITCHED_AUTO : AUTO
       },
       view: state => state,
       stateVersion: 1,
+    })
+    const sessions = (scaffold.ctx as unknown as {
+      sessions: {
+        registerEventNamespace(registration: {
+          namespace: string
+          owner: string
+          version: number
+          events: Record<string, { parse(value: unknown): unknown }>
+        }): void
+      }
+    }).sessions
+    sessions.registerEventNamespace({
+      namespace: 'dsh-auto-mode',
+      owner: 'experimental-auto-mode-fixture',
+      version: 1,
+      events: { [SELECTION_EVENT]: { parse: value => value } },
     })
     const executablePath = process.env.DSH_PLAYWRIGHT_EXECUTABLE_PATH
     browser = await chromium.launch(executablePath === undefined ? {} : { executablePath })
@@ -104,6 +137,9 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
     await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
     await connectFreshWorkspaceZh(page, scaffold.workspaceCwd, 'experimental-auto-mode')
+    const agent = scaffold.ctx.agents.roots()[0]
+    if (agent === undefined) throw new Error('experimental Auto fixture opened no root Agent')
+    appendAutoSelection(agent, AUTO.decision!)
   }, 120_000)
 
   afterAll(async () => {
@@ -131,11 +167,7 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
 
     const agent = scaffold.ctx.agents.roots()[0]
     if (agent === undefined) throw new Error('experimental Auto fixture opened no root Agent')
-    agent.session.append('session/title', {
-      title: SWITCH_MARKER,
-      messageSeqs: [],
-      source: { kind: 'fallback' },
-    })
+    appendAutoSelection(agent, SWITCHED_AUTO.decision!)
     await page.getByText('strong · high-complexity-task', { exact: true }).waitFor()
     const rollingValues = page.locator('[class*="routeRollTrack"]')
     await expect.poll(() => rollingValues.count()).toBe(4)
@@ -144,8 +176,22 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
       'offmax',
     ]))
     await page.getByText('已切换模型与推理等级', { exact: true }).waitFor()
+    await page.getByText('Auto 已切换模型和推理等级', { exact: true }).waitFor()
+    await page.getByText('模型：maintainer-fast-model → maintainer-strong-model', { exact: true }).waitFor()
+    await page.getByText('推理等级：off → max', { exact: true }).waitFor()
+    await page.getByText('依据：strong · high-complexity-task', { exact: true }).waitFor()
     await expect.poll(() => rollingValues.first().evaluate(element => getComputedStyle(element).animationName))
       .toMatch(/auto-route-value-roll$/)
+    await expect.poll(() => rollingValues.first().evaluate(element => getComputedStyle(element).animationDuration))
+      .toBe('1.2s')
+    const changedTargets = page.locator('[class*="routeRollTarget"]')
+    await expect.poll(() => changedTargets.count()).toBe(4)
+    await expect.poll(() => changedTargets.first().evaluate(element => getComputedStyle(element).animationDelay))
+      .toBe('1.2s')
+    const changedAuto = page.locator('[class*="autoTriggerChanged"]')
+    await expect.poll(() => changedAuto.count()).toBe(1)
+    await expect.poll(() => changedAuto.evaluate(element => getComputedStyle(element).animationName))
+      .toMatch(/auto-route-target-breathe$/)
     const snapshot = await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
     expect(tripwire.pageErrors).toEqual([])

@@ -56,7 +56,7 @@ function RouteValueRoll({ current, previous }: { current: string; previous: stri
     <span className={css.routeRoller}>
       <span className={css.routeRollTrack} aria-hidden="true">
         <span>{previous}</span>
-        <span>{current}</span>
+        <span className={css.routeRollTarget}>{current}</span>
       </span>
       <span className={css.srOnly}>{current}</span>
     </span>
@@ -343,7 +343,11 @@ export function ModelSelect(
           }
         }}
       >
-        {auto?.active && <span className={css.autoTrigger}>{t('menu.auto')}</span>}
+        {auto?.active && (
+          <span className={clsx(css.autoTrigger, autoRouteSwitched && css.autoTriggerChanged)}>
+            {t('menu.auto')}
+          </span>
+        )}
         <span className={css.triggerLabel}><RouteValueRoll current={modelLabel} previous={previousModelLabel} /></span>
         {effortLabel !== undefined && (
           <span className={css.triggerEffort}><RouteValueRoll current={effortLabel} previous={previousEffortLabel} /></span>

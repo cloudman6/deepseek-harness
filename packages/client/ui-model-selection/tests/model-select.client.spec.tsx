@@ -284,6 +284,8 @@ describe('ModelSelect reasoning effort', () => {
         .map(element => element.textContent)
       expect(rollingValues).toContain('DeepSeek-V4-FlashDeepSeek-V4-Pro')
       expect(rollingValues).toContain('OffMax')
+      expect(view.container.querySelectorAll(`.${css.routeRollTarget}`)).toHaveLength(4)
+      expect(view.container.querySelectorAll(`.${css.autoTriggerChanged}`)).toHaveLength(1)
     })
 
     fireEvent.click(screen.getByRole('menuitem', { name: /模型/ }))

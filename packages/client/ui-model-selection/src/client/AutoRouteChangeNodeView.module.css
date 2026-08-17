@@ -1,0 +1,36 @@
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: 8px;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.dot {
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: var(--dsw-alias-state-business-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-state-business-primary) 15%, transparent);
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 600;
+}
+
+.reason {
+  color: var(--dsw-alias-label-tertiary);
+}

@@ -56,6 +56,15 @@
   color: var(--dsw-alias-label-primary);
 }
 
+/* A route change uses the same business blue as the active DeepSeek UI state.
+ * The target is blue while its value arrives, then takes two slow brightness
+ * breaths before returning to the surrounding label color. */
+.autoTriggerChanged,
+.routeRollTarget {
+  color: var(--dsw-alias-state-business-primary);
+  animation: auto-route-target-breathe 2200ms ease-in-out 1200ms forwards;
+}
+
 /* Effort value beside the model name (mock's 'High': same 13/20/500, caption tone). */
 .triggerEffort {
   flex: 0 0 auto;
@@ -251,7 +260,7 @@
 .routeRollTrack {
   display: flex;
   flex-direction: column;
-  animation: auto-route-value-roll 560ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: auto-route-value-roll 1200ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .routeRollTrack > span {
@@ -264,6 +273,26 @@
 @keyframes auto-route-value-roll {
   from { transform: translateY(0); }
   to { transform: translateY(-50%); }
+}
+
+@keyframes auto-route-target-breathe {
+  0%, 18%, 47%, 76% {
+    color: var(--dsw-alias-state-business-primary);
+    opacity: 1;
+    text-shadow: none;
+  }
+
+  31%, 63% {
+    color: var(--dsw-alias-state-business-primary);
+    opacity: 0.72;
+    text-shadow: 0 0 9px var(--dsw-alias-state-business-primary);
+  }
+
+  100% {
+    color: inherit;
+    opacity: 1;
+    text-shadow: none;
+  }
 }
 
 .srOnly {
@@ -281,6 +310,13 @@
   .routeRollTrack {
     animation: none;
     transform: translateY(-50%);
+  }
+
+  .autoTriggerChanged,
+  .routeRollTarget {
+    animation: none;
+    color: inherit;
+    text-shadow: none;
   }
 }
 
