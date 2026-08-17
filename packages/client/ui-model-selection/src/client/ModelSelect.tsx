@@ -34,14 +34,33 @@ export type ModelSelectProps = PropsRuntime<'conversation.input.model'>
 /** Which pane the dropdown shows: the two-row root or one drilled-in list. */
 type Pane = 'root' | 'model' | 'effort'
 
-const AUTO_SWITCH_NOTICE_MS = 3_000
-
 /** One dynamic effort row; undefined means preserve the provider default. */
 interface EffortChoice {
   key: string
   effort: string | undefined
   label: string
   description?: string
+}
+
+/** An Auto route before its current projection replaced it. */
+interface AutoRoute {
+  provider: string
+  model: string
+  reasoningEffort: string
+}
+
+/** Render the current route value, rolling from the preceding value when it changed. */
+function RouteValueRoll({ current, previous }: { current: string; previous: string | undefined }) {
+  if (previous === undefined || previous === current) return current
+  return (
+    <span className={css.routeRoller}>
+      <span className={css.routeRollTrack} aria-hidden="true">
+        <span>{previous}</span>
+        <span>{current}</span>
+      </span>
+      <span className={css.srOnly}>{current}</span>
+    </span>
+  )
 }
 
 /**
@@ -116,27 +135,31 @@ export function ModelSelect(
       })),
     ], [reasoning, t])
   const [autoBusy, setAutoBusy] = useState(false)
-  const [switchedRouteKey, setSwitchedRouteKey] = useState<string | null>(null)
-  const previousAutoRouteKeyRef = useRef<string | null>(null)
   const busy = state.status === 'selecting' || autoBusy
-  const autoRouteKey = auto?.active && auto.decision !== null
-    ? `${auto.decision.provider}\u0000${auto.decision.model}\u0000${auto.decision.reasoningEffort}`
-    : null
-  const autoRouteSwitched = switchedRouteKey !== null && switchedRouteKey === autoRouteKey
-
-  useEffect(() => {
-    const previous = previousAutoRouteKeyRef.current
-    previousAutoRouteKeyRef.current = autoRouteKey
-    if (previous === null || autoRouteKey === null || previous === autoRouteKey) {
-      setSwitchedRouteKey(null)
-      return
+  const autoRoute = useMemo<AutoRoute | null>(() => auto?.active && auto.decision !== null
+    ? {
+      provider: auto.decision.provider,
+      model: auto.decision.model,
+      reasoningEffort: auto.decision.reasoningEffort,
     }
-    setSwitchedRouteKey(autoRouteKey)
-    const timeout = window.setTimeout(() => {
-      setSwitchedRouteKey(current => current === autoRouteKey ? null : current)
-    }, AUTO_SWITCH_NOTICE_MS)
-    return () => { window.clearTimeout(timeout) }
-  }, [autoRouteKey])
+    : null, [
+    auto?.active,
+    auto?.decision?.provider,
+    auto?.decision?.model,
+    auto?.decision?.reasoningEffort,
+  ])
+  const projectedPreviousAutoRoute = auto?.active && auto.previousDecision !== null && auto.previousDecision !== undefined
+    ? {
+      provider: auto.previousDecision.provider,
+      model: auto.previousDecision.model,
+      reasoningEffort: auto.previousDecision.reasoningEffort,
+    }
+    : null
+  const autoRouteChanged = autoRoute !== null && projectedPreviousAutoRoute !== null
+    && (autoRoute.model !== projectedPreviousAutoRoute.model
+      || autoRoute.reasoningEffort !== projectedPreviousAutoRoute.reasoningEffort)
+  const autoRouteSwitched = autoRouteChanged
+  const previousAutoRoute = autoRouteSwitched ? projectedPreviousAutoRoute : null
 
   const reload = (): void => {
     lastActionRef.current = 'load'
@@ -272,6 +295,18 @@ export function ModelSelect(
 
   const modelLabel = currentChoice?.model.name
     ?? (auto?.active && auto.decision !== null ? auto.decision.model : t('trigger.fallback'))
+  const previousChoice = previousAutoRoute === null
+    ? undefined
+    : choices.find(choice => choice.selection.provider === previousAutoRoute.provider && choice.selection.model === previousAutoRoute.model)
+  const previousModelLabel = previousAutoRoute === null
+    ? undefined
+    : previousChoice?.model.name ?? previousAutoRoute.model
+  const previousEffort = previousAutoRoute === null
+    ? undefined
+    : previousAutoRoute.reasoningEffort
+  const previousEffortLabel = previousAutoRoute === null
+    ? undefined
+    : previousChoice?.model.reasoning?.efforts.find(level => level.id === previousEffort)?.name ?? previousEffort
   const autoPrefix = auto?.active ? `${t('menu.auto')} · ` : ''
   const triggerLabel = effortLabel === undefined ? `${autoPrefix}${modelLabel}` : `${autoPrefix}${modelLabel} · ${effortLabel}`
   const triggerAria = auto?.active && auto.decision !== null && effortLabel !== undefined
@@ -309,8 +344,10 @@ export function ModelSelect(
         }}
       >
         {auto?.active && <span className={css.autoTrigger}>{t('menu.auto')}</span>}
-        <span className={css.triggerLabel}>{modelLabel}</span>
-        {effortLabel !== undefined && <span className={css.triggerEffort}>{effortLabel}</span>}
+        <span className={css.triggerLabel}><RouteValueRoll current={modelLabel} previous={previousModelLabel} /></span>
+        {effortLabel !== undefined && (
+          <span className={css.triggerEffort}><RouteValueRoll current={effortLabel} previous={previousEffortLabel} /></span>
+        )}
         <IconChevronDownOutline14 className={clsx(css.chevron, open && css.chevronOpen)} />
       </button>
 
@@ -354,7 +391,10 @@ export function ModelSelect(
                               className={css.autoRouteValue}
                               title={`${auto.decision.provider} / ${auto.decision.model} / ${auto.decision.reasoningEffort}`}
                             >
-                              {modelLabel} · {effortLabel ?? auto.decision.reasoningEffort}
+                              <RouteValueRoll current={modelLabel} previous={previousModelLabel} /> · <RouteValueRoll
+                                current={effortLabel ?? auto.decision.reasoningEffort}
+                                previous={previousEffortLabel}
+                              />
                             </span>
                             {autoRouteSwitched && (
                               <span className={css.autoSwitchNotice}>{t('menu.autoSwitched')}</span>

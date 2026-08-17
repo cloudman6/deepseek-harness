@@ -28,6 +28,7 @@ interface AutoProjection {
     reasonCode: string
     reason: string
   } | null
+  previousDecision?: AutoProjection['decision']
 }
 
 const AUTO: AutoProjection = {
@@ -58,6 +59,7 @@ const SWITCHED_AUTO: AutoProjection = {
     reasonCode: 'high-complexity-task',
     reason: 'Matched a high-complexity or high-consequence task signal.',
   },
+  previousDecision: AUTO.decision,
 }
 
 const SWITCH_MARKER = 'experimental-auto-mode-switch'
@@ -124,6 +126,8 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
     await page.getByText('fast · bounded-simple-task', { exact: true }).waitFor()
     await expect.poll(async () => await page.getByText('已切换模型与推理等级', { exact: true }).count()).toBe(0)
     await page.getByText('实验模式 · 未经质量准入', { exact: true }).waitFor()
+    // Let React commit the initial projection as the non-animated baseline.
+    await page.waitForTimeout(50)
 
     const agent = scaffold.ctx.agents.roots()[0]
     if (agent === undefined) throw new Error('experimental Auto fixture opened no root Agent')
@@ -132,9 +136,16 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
       messageSeqs: [],
       source: { kind: 'fallback' },
     })
-    await page.getByText('maintainer-strong-model · max', { exact: true }).waitFor()
     await page.getByText('strong · high-complexity-task', { exact: true }).waitFor()
+    const rollingValues = page.locator('[class*="routeRollTrack"]')
+    await expect.poll(() => rollingValues.count()).toBe(4)
+    await expect.poll(() => rollingValues.allTextContents()).toEqual(expect.arrayContaining([
+      'maintainer-fast-modelmaintainer-strong-model',
+      'offmax',
+    ]))
     await page.getByText('已切换模型与推理等级', { exact: true }).waitFor()
+    await expect.poll(() => rollingValues.first().evaluate(element => getComputedStyle(element).animationName))
+      .toMatch(/auto-route-value-roll$/)
     const snapshot = await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
     expect(tripwire.pageErrors).toEqual([])

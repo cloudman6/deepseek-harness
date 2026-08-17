@@ -10,6 +10,7 @@ import { ModelSelect } from '../src/client/ModelSelect.tsx'
 import type { DshAutoModeProjection } from '../src/client/slots.ts'
 import { zh } from '../src/client/locales.ts'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
+import css from '../src/client/ModelSelect.module.css'
 
 // The seat's key domain is model ∪ common; the stub mirrors the real lookup
 // chain: package dictionary, then common vocabulary, then the key.
@@ -251,6 +252,7 @@ describe('ModelSelect reasoning effort', () => {
 
     projection = {
       ...projection,
+      previousDecision: projection.decision,
       decision: {
         turn: 1,
         step: 1,
@@ -273,10 +275,15 @@ describe('ModelSelect reasoning effort', () => {
       t={t}
     />)
     expect(trigger.getAttribute('aria-label')).toMatch(/Auto.*DeepSeek-V4-Pro.*Max/)
-    expect(screen.getByText('DeepSeek-V4-Pro · Max')).toBeTruthy()
+    expect(screen.getAllByText('DeepSeek-V4-Pro')).not.toHaveLength(0)
+    expect(screen.getAllByText('Max')).not.toHaveLength(0)
     expect(screen.getByText(/strong.*high-complexity-task/i)).toBeTruthy()
     await waitFor(() => {
       expect(screen.getByText('已切换模型与推理等级')).toBeTruthy()
+      const rollingValues = [...view.container.querySelectorAll(`.${css.routeRollTrack}`)]
+        .map(element => element.textContent)
+      expect(rollingValues).toContain('DeepSeek-V4-FlashDeepSeek-V4-Pro')
+      expect(rollingValues).toContain('OffMax')
     })
 
     fireEvent.click(screen.getByRole('menuitem', { name: /模型/ }))

@@ -12,7 +12,7 @@ Phase 0P Auto 插件可以在 Host 边界选择提供方、模型和推理强度
 
 维护者 fork 以可选 `dshAutoMode` Session 投影扩展现有 `conversation.input.model` 入口。投影存在时，根菜单把 Auto 放在 Model 和 Effort 之前，用标准对勾图标标记启用的 Auto 行，并在最近的层级、原因代码、解释和 `experimental-unadmitted` 状态之前，以明确的“实际选择”标签显示有效模型和推理强度。紧凑触发器在投影给出的模型和推理强度前添加 Auto。该明确标签把 Host 选择事实与 Auto 详情下方保留的手动 Model 和 Effort 控件区分开。
 
-初始投影选择只建立显示状态，不播放动画。之后提供方、模型或 effort 发生改变时，有效 route 会短暂高亮并增加文字切换提示。提示与 route 使用同一项投影事实；它不根据任务、目录刷新或客户端定时器推断切换。`prefers-reduced-motion` 会取消位移动画，同时保留可见文字。
+初始投影选择只建立显示状态，不播放动画。之后出现新的决定时，Host 投影会同时携带紧邻的前一条决定和有效决定。客户端只把发生变化的模型或推理 effort 从前一个值滚动到有效值；两者都变化时，两条值轨道会同步滚动。切换文字同样使用这些投影事实，不根据任务或目录刷新推断切换。`prefers-reduced-motion` 会取消位移动画，同时保留可见文字和最终值。
 
 外部 Phase 0P 插件持有 Auto 状态和决定。它追加 `dsh-auto-mode/mode` 与 `dsh-auto-mode/selection` 事件，经 `ctx.sessionProjections` 折叠，并注册 `/auto [off]`。Session 投影帧在请求运行期间更新浏览器，因此菜单不会推断路由，也不会轮询模型目录。
 

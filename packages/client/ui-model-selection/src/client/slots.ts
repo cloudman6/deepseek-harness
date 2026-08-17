@@ -43,6 +43,8 @@ export interface DshAutoModeProjection {
   active: boolean
   evidenceStatus: 'experimental-unadmitted'
   decision: DshAutoModeDecision | null
+  /** The preceding selection for a live route transition; absent on the initial projection. */
+  previousDecision?: DshAutoModeDecision | null
 }
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
