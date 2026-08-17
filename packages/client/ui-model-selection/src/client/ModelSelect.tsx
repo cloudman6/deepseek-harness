@@ -160,6 +160,10 @@ export function ModelSelect(
       || autoRoute.reasoningEffort !== projectedPreviousAutoRoute.reasoningEffort)
   const autoRouteSwitched = autoRouteChanged
   const previousAutoRoute = autoRouteSwitched ? projectedPreviousAutoRoute : null
+  const autoRouteTransitionKey = autoRouteSwitched && autoRoute !== null && previousAutoRoute !== null
+    ? `${previousAutoRoute.provider}/${previousAutoRoute.model}/${previousAutoRoute.reasoningEffort}`
+      + `->${autoRoute.provider}/${autoRoute.model}/${autoRoute.reasoningEffort}`
+    : 'steady'
 
   const reload = (): void => {
     lastActionRef.current = 'load'
@@ -344,7 +348,10 @@ export function ModelSelect(
         }}
       >
         {auto?.active && (
-          <span className={clsx(css.autoTrigger, autoRouteSwitched && css.autoTriggerChanged)}>
+          <span
+            key={autoRouteTransitionKey}
+            className={clsx(css.autoTrigger, autoRouteSwitched && css.autoTriggerChanged)}
+          >
             {t('menu.auto')}
           </span>
         )}

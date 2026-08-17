@@ -31,9 +31,17 @@ declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
 interface AutoRouteChangeState extends AutoRouteChangeNode {
   readonly seq: number
   readonly time: number
+  /** Place the notice after the user message that caused this selection. */
+  readonly anchorSeq: number
 }
 
 const SELECTION_EVENT = 'dsh-auto-mode/selection'
+const USER_ROUTE_NOTICE_OFFSET = 0.05
+
+interface InputMessageAnchor {
+  readonly kind: 'user' | 'steering' | 'context'
+  readonly seq: number
+}
 
 function record(value: unknown): Record<string, unknown> | undefined {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -68,7 +76,7 @@ function selection(event: SessionEvent): AutoRouteDecision | undefined {
   }
 }
 
-/** Build one transcript notice only when a later Auto selection changes model or effort. */
+/** Build one transcript notice after its triggering input when Auto changes route. */
 export const autoRouteChangeDefinition: ConversationNodeDefinition<AutoRouteChangeState> = {
   kind: 'auto-route-change',
   target: 'chat',
@@ -77,11 +85,15 @@ export const autoRouteChangeDefinition: ConversationNodeDefinition<AutoRouteChan
     const current = selection(match.event)
     if (current === undefined) throw new Error('auto-route-change start requires a valid dsh-auto-mode selection')
     const previous = reader.previous<AutoRouteChangeState>('auto-route-change')?.state.current
+    const input = reader.previous<InputMessageAnchor>('input-message')?.state
     return {
       ...current,
       previous: previous ?? current.current,
       seq: match.event.seq,
       time: match.event.time,
+      anchorSeq: input?.kind === 'user' || input?.kind === 'steering'
+        ? input.seq + USER_ROUTE_NOTICE_OFFSET
+        : match.event.seq,
     }
   },
   update: context => context.state,
@@ -95,7 +107,7 @@ export const autoRouteChangeDefinition: ConversationNodeDefinition<AutoRouteChan
       kind: 'auto-route-change',
       id: context.id,
       target: 'chat',
-      anchorSeq: state.seq,
+      anchorSeq: state.anchorSeq,
       location: context.start?.location ?? { kind: 'unresolved' },
       visibility: 'visible',
       data: {

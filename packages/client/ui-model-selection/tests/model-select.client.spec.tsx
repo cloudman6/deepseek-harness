@@ -288,6 +288,38 @@ describe('ModelSelect reasoning effort', () => {
       expect(view.container.querySelectorAll(`.${css.autoTriggerChanged}`)).toHaveLength(1)
     })
 
+    const firstAutoTrigger = view.container.querySelector(`.${css.autoTriggerChanged}`)
+    projection = {
+      ...projection,
+      previousDecision: projection.decision,
+      decision: {
+        turn: 1,
+        step: 2,
+        tier: 'strong',
+        provider: 'deepseek-official',
+        model: 'deepseek-v4-pro',
+        reasoningEffort: 'high',
+        reasonCode: 'standard-effort-task',
+        reason: 'The current step needs less reasoning effort.',
+      },
+    }
+    view.rerender(<ModelSelect
+      locked={false}
+      available
+      directory={directory}
+      load={vi.fn()}
+      select={select}
+      setAuto={setAuto}
+      {...runtime(useProjection)}
+      t={t}
+    />)
+    await waitFor(() => {
+      expect(trigger.getAttribute('aria-label')).toMatch(/Auto.*DeepSeek-V4-Pro.*High/)
+      expect([...view.container.querySelectorAll(`.${css.routeRollTrack}`)].map(element => element.textContent))
+        .toContain('MaxHigh')
+      expect(view.container.querySelector(`.${css.autoTriggerChanged}`)).not.toBe(firstAutoTrigger)
+    })
+
     fireEvent.click(screen.getByRole('menuitem', { name: /模型/ }))
     fireEvent.click(screen.getByRole('menuitemradio', { name: 'DeepSeek-V4-Flash' }))
     await waitFor(() => {

@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-17-experimental-auto-model-menu.md
-2026-08-17-experimental-auto-model-menu.md: a4b4bff431676ea18a54d01db48f1b171321839c
-2026-08-17-experimental-auto-model-menu.zh.md: 75a973d3c2916fe669321e1401c74291ebf6da05
+2026-08-17-experimental-auto-model-menu.md: 3b80cc34c9bfb77b051f792bd8bf6b949e3cb2de
+2026-08-17-experimental-auto-model-menu.zh.md: 501377a450011dd85e04e5780cb9b4b2a735a845
