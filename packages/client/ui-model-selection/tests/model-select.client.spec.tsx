@@ -315,8 +315,11 @@ describe('ModelSelect reasoning effort', () => {
     />)
     await waitFor(() => {
       expect(trigger.getAttribute('aria-label')).toMatch(/Auto.*DeepSeek-V4-Pro.*High/)
-      expect([...view.container.querySelectorAll(`.${css.routeRollTrack}`)].map(element => element.textContent))
+      const rollingTracks = [...view.container.querySelectorAll(`.${css.routeRollTrack}`)]
+      expect(rollingTracks.map(element => element.textContent))
         .toContain('MaxHigh')
+      expect(rollingTracks.find(element => element.textContent === 'MaxHigh')?.querySelector(`.${css.routeRollTarget}`)?.textContent)
+        .toBe('High')
       expect(view.container.querySelector(`.${css.autoTriggerChanged}`)).not.toBe(firstAutoTrigger)
     })
 

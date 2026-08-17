@@ -54,7 +54,7 @@ function RouteValueRoll({ current, previous }: { current: string; previous: stri
   if (previous === undefined || previous === current) return current
   return (
     <span className={css.routeRoller}>
-      <span className={css.routeRollTrack} aria-hidden="true">
+      <span key={`${previous}\u0000${current}`} className={css.routeRollTrack} aria-hidden="true">
         <span>{previous}</span>
         <span className={css.routeRollTarget}>{current}</span>
       </span>
