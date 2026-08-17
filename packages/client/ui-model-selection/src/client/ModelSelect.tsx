@@ -326,6 +326,15 @@ export function ModelSelect(
                     <div className={css.autoDetails} role="status">
                       {auto.decision !== null && (
                         <>
+                          <span className={css.autoRoute}>
+                            <span className={css.autoRouteLabel}>{t('menu.autoEffective')}</span>
+                            <span
+                              className={css.autoRouteValue}
+                              title={`${auto.decision.provider} / ${auto.decision.model} / ${auto.decision.reasoningEffort}`}
+                            >
+                              {modelLabel} · {effortLabel ?? auto.decision.reasoningEffort}
+                            </span>
+                          </span>
                           <span className={css.autoDecision}>{auto.decision.tier} · {auto.decision.reasonCode}</span>
                           <span>{auto.decision.reason}</span>
                         </>

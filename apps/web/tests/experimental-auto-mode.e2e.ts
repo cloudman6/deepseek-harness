@@ -97,6 +97,8 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
 
     const auto = page.getByRole('menuitemradio', { name: /Auto/ })
     await expect.poll(() => auto.getAttribute('aria-checked')).toBe('true')
+    await page.getByText('实际选择', { exact: true }).waitFor()
+    await page.getByText('maintainer-strong-model · max', { exact: true }).waitFor()
     await page.getByText('strong · high-complexity-task', { exact: true }).waitFor()
     await page.getByText('实验模式 · 未经质量准入', { exact: true }).waitFor()
     const snapshot = await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd)

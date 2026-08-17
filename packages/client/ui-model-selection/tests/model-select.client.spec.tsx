@@ -244,6 +244,8 @@ describe('ModelSelect reasoning effort', () => {
     const autoItem = screen.getByRole('menuitemradio', { name: /Auto/ })
     expect(autoItem.getAttribute('aria-checked')).toBe('true')
     expect(screen.getAllByRole('menuitem')[0]?.textContent).toContain('模型')
+    expect(screen.getByText('实际选择')).toBeTruthy()
+    expect(screen.getByText('DeepSeek-V4-Flash · Off')).toBeTruthy()
     expect(screen.getByText(/fast.*bounded-simple-task/i)).toBeTruthy()
 
     projection = {
@@ -270,6 +272,7 @@ describe('ModelSelect reasoning effort', () => {
       t={t}
     />)
     expect(trigger.getAttribute('aria-label')).toMatch(/Auto.*DeepSeek-V4-Pro.*Max/)
+    expect(screen.getByText('DeepSeek-V4-Pro · Max')).toBeTruthy()
     expect(screen.getByText(/strong.*high-complexity-task/i)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('menuitem', { name: /模型/ }))

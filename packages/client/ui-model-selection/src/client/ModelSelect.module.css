@@ -206,6 +206,27 @@
   line-height: 16px;
 }
 
+.autoRoute {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin-bottom: 4px;
+}
+
+.autoRouteLabel {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.autoRouteValue {
+  overflow-wrap: anywhere;
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
 .autoDecision {
   color: var(--dsw-alias-label-secondary);
   font-weight: 600;

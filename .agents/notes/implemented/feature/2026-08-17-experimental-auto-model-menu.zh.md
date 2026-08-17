@@ -10,7 +10,7 @@ Phase 0P Auto 插件可以在 Host 边界选择提供方、模型和推理强度
 
 ## 决策
 
-维护者 fork 以可选 `dshAutoMode` Session 投影扩展现有 `conversation.input.model` 入口。投影存在时，根菜单把 Auto 放在 Model 和 Effort 之前，用标准对勾图标标记启用的 Auto 行，并显示最近的层级、原因代码、解释和 `experimental-unadmitted` 状态。紧凑触发器在投影给出的模型和推理强度前添加 Auto。
+维护者 fork 以可选 `dshAutoMode` Session 投影扩展现有 `conversation.input.model` 入口。投影存在时，根菜单把 Auto 放在 Model 和 Effort 之前，用标准对勾图标标记启用的 Auto 行，并在最近的层级、原因代码、解释和 `experimental-unadmitted` 状态之前，以明确的“实际选择”标签显示有效模型和推理强度。紧凑触发器在投影给出的模型和推理强度前添加 Auto。该明确标签把 Host 选择事实与 Auto 详情下方保留的手动 Model 和 Effort 控件区分开。
 
 外部 Phase 0P 插件持有 Auto 状态和决定。它追加 `dsh-auto-mode/mode` 与 `dsh-auto-mode/selection` 事件，经 `ctx.sessionProjections` 折叠，并注册 `/auto [off]`。Session 投影帧在请求运行期间更新浏览器，因此菜单不会推断路由，也不会轮询模型目录。
 
@@ -20,7 +20,7 @@ Phase 0P Auto 插件可以在 Host 边界选择提供方、模型和推理强度
 
 ## 验证
 
-组件测试固定菜单顺序、勾选状态、投影提供方／模型／推理强度、目录缺项时的显示、实时投影替换、路由解释，以及先停用 Auto 再执行手工选择的顺序。浏览器插件测试固定 `/auto` 与 `/auto off` 的命令传递、`/model` 互斥和错误映射。仓库内的无密钥完整 Web snapshot 固定 Auto 为首个已勾选行、目录缺少的投影路由、其 `strong` 原因和未准入标签。挂载外部插件的真实 Web 组合验证：运行简单任务时，可见选择会在完成前从 Flash/High 变为 Auto/Flash/Off，并显示其 `fast` 原因；手工选择 Pro 后恢复普通触发器。
+组件测试固定菜单顺序、勾选状态、明确的实际选择标签与模型／推理强度值、投影提供方／模型／推理强度、目录缺项时的显示、实时投影替换、路由解释，以及先停用 Auto 再执行手工选择的顺序。浏览器插件测试固定 `/auto` 与 `/auto off` 的命令传递、`/model` 互斥和错误映射。仓库内的无密钥完整 Web snapshot 固定 Auto 为首个已勾选行、带明确标签且目录缺少的投影路由、其 `strong` 原因和未准入标签。挂载外部插件的真实 Web 组合验证：运行简单任务时，可见选择会在完成前从 Flash/High 变为 Auto/Flash/Off，并显示其 `fast` 原因；手工选择 Pro 后恢复普通触发器。
 
 ## 考虑过的替代方案
 
@@ -32,4 +32,4 @@ Phase 0P Auto 插件可以在 Host 边界选择提供方、模型和推理强度
 
 ## 后果
 
-用户可以在原有模型选择位置选择 Auto，并在任务运行时看到有效路由和解释。交互上，手工选择具有明确优先级；外部能力缺席时，标准菜单保持不变。该 fork 在 `ui-model-selection` 中接受了 Auto 专用的可选类型与命令桥；要让此集成离开固定版本实验，生产插件生态仍需上游提供方无关的贡献约定。
+用户可以在原有模型选择位置选择 Auto，并在任务运行时明确识别哪些有效模型和推理强度是 Auto 的输出，而不必从手动控件中推断。交互上，手工选择具有明确优先级；外部能力缺席时，标准菜单保持不变。该 fork 在 `ui-model-selection` 中接受了 Auto 专用的可选类型与命令桥；要让此集成离开固定版本实验，生产插件生态仍需上游提供方无关的贡献约定。
