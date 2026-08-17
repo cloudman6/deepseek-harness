@@ -29,7 +29,7 @@ import { en, zh, type ModelKey } from './locales.ts'
 export { ModelDirectory } from './directory.ts'
 export type { ModelDirectoryState } from './directory.ts'
 export { ModelDirectoryResolver } from './service.ts'
-export type { ModelSelectInjected } from './slots.ts'
+export type { DshAutoModeDecision, DshAutoModeProjection, ModelSelectInjected } from './slots.ts'
 export type { ModelKey } from './locales.ts'
 
 declare module '@deepseek-ai/dsh-client-ui-slots' {
@@ -97,7 +97,7 @@ function selectionOf(state: ModelDirectoryState, id: string): ModelSelection | u
 const NS = 'model'
 
 /** Required services: the contribution registry, the seat's slot registry, locale, and the service's own faces. */
-export const inject = ['commandUi', 'connection', 'locale', 'sessions', 'slots', 'remote']
+export const inject = ['commandUi', 'connection', 'locale', 'sessions', 'slots', 'remote', 'remote.commands']
 
 /**
  * Client plugin body: mount ModelDirectoryResolver, register the `model` dictionaries,
@@ -119,7 +119,7 @@ export function apply(ctx: ClientContext): void {
   // Entry 1: the /model popupSelect over the shared directory. The command
   // description is registry-held text: it reads t() once at registration and
   // refreshes only on re-registration, not on locale change.
-  ctx.inject(['commandUi', 'modelDirectories'], (scope: ClientContext) => {
+  ctx.inject(['commandUi', 'modelDirectories', 'remote.commands'], (scope: ClientContext) => {
     const command = scope.get('commandUi') as CommandUiContract
     const models = scope.modelDirectories
     const sessions = scope.sessions
@@ -144,6 +144,9 @@ export function apply(ctx: ClientContext): void {
           if (selection === undefined) {
             throw new Error('this provider\'s catalog failed to load — pick a model from a loaded group')
           }
+          const result = await scope.remote.commands.execute(session.sessionId, '/auto off')
+          if (!result.ok) throw new Error(`${result.error.message} (${result.error.code})`)
+          if (result.value?.result.kind === 'error') throw new Error(result.value.result.text)
           await directory.select(selection)
         },
       },
@@ -169,6 +172,14 @@ export function apply(ctx: ClientContext): void {
           select: (selection: ModelSelection) => available
             ? directory.select(selection).then(() => true, () => false)
             : Promise.resolve(false),
+          setAuto: async (active: boolean) => {
+            if (!available) return 'Auto is unavailable for addressed subagent sessions'
+            const line = active ? '/auto' : '/auto off'
+            const result = await scope.remote.commands.execute(sessionId, line)
+            if (!result.ok) return `${result.error.message} (${result.error.code})`
+            if (result.value === undefined) return `unknown command: ${line}`
+            return result.value.result.kind === 'error' ? result.value.result.text : null
+          },
         }
       },
     }, ModelSelect))

@@ -46,6 +46,11 @@
   white-space: nowrap;
 }
 
+.autoTrigger {
+  flex: 0 0 auto;
+  color: var(--dsw-alias-label-primary);
+}
+
 /* Effort value beside the model name (mock's 'High': same 13/20/500, caption tone). */
 .triggerEffort {
   flex: 0 0 auto;
@@ -163,6 +168,57 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.autoOption {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 46px;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 10px;
+  outline: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.autoOption:hover:not(:disabled),
+.autoOption:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.autoOption:disabled {
+  color: var(--dsw-alias-label-dimmed);
+  cursor: default;
+}
+
+.autoDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 4px 10px 8px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.autoDecision {
+  color: var(--dsw-alias-label-secondary);
+  font-weight: 600;
+}
+
+.autoEvidence {
+  color: var(--dsw-alias-state-warn-label);
+}
+
+.divider {
+  height: 1px;
+  margin: 3px 6px;
+  background: var(--dsw-alias-border-l3);
 }
 
 .option:hover:not(:disabled),

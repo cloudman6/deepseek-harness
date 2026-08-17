@@ -4,8 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ModelSelection } from '@deepseek-ai/dsh-api-remotes/client'
 import { createSnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ComponentProps } from 'react'
+import type { PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelDirectoryState } from '../src/client/directory.ts'
 import { ModelSelect } from '../src/client/ModelSelect.tsx'
+import type { DshAutoModeProjection } from '../src/client/slots.ts'
 import { zh } from '../src/client/locales.ts'
 import { zh as commonZh } from '@deepseek-ai/dsh-client-locale/src/locales/zh.ts'
 
@@ -28,6 +30,12 @@ const reasoning = {
   ],
   defaultEffort: 'high',
 }
+
+type ModelRuntime = Omit<PropsRuntime<'conversation.input.model'>, 'locked'>
+
+const runtime = (useProjection: ComponentProps<typeof ModelSelect>['useProjection']): ModelRuntime => ({
+  useProjection,
+} as unknown as ModelRuntime)
 
 function state(overrides: Partial<ModelDirectoryState> = {}): ModelDirectoryState {
   return {
@@ -60,6 +68,8 @@ describe('ModelSelect reasoning effort', () => {
       directory={directory}
       load={vi.fn()}
       select={select}
+      setAuto={vi.fn().mockResolvedValue(null)}
+      {...runtime(vi.fn(() => undefined))}
       t={t}
     />)
 
@@ -101,6 +111,8 @@ describe('ModelSelect reasoning effort', () => {
       directory={directory}
       load={vi.fn()}
       select={vi.fn().mockResolvedValue(true)}
+      setAuto={vi.fn().mockResolvedValue(null)}
+      {...runtime(vi.fn(() => undefined))}
       t={t}
     />)
 
@@ -123,6 +135,8 @@ describe('ModelSelect reasoning effort', () => {
       directory={directory}
       load={vi.fn()}
       select={select}
+      setAuto={vi.fn().mockResolvedValue(null)}
+      {...runtime(vi.fn(() => undefined))}
       t={t}
     />)
 
@@ -155,6 +169,8 @@ describe('ModelSelect reasoning effort', () => {
       directory={directory}
       load={vi.fn()}
       select={select}
+      setAuto={vi.fn().mockResolvedValue(null)}
+      {...runtime(vi.fn(() => undefined))}
       t={t}
     />)
 
@@ -175,10 +191,127 @@ describe('ModelSelect reasoning effort', () => {
       directory={createSnapshotStore(state())}
       load={load}
       select={vi.fn().mockResolvedValue(false)}
+      setAuto={vi.fn().mockResolvedValue(null)}
+      {...runtime(vi.fn(() => undefined))}
       t={t}
     />)
 
     expect(screen.queryByRole('button')).toBeNull()
     expect(load).not.toHaveBeenCalled()
+  })
+
+  it('shows Auto first with a check, updates its decision live, and exits Auto before manual selection', async () => {
+    const directory = createSnapshotStore<ModelDirectoryState>(state({
+      groups: [{
+        id: 'deepseek-official',
+        name: 'DeepSeek',
+        models: [
+          { id: 'deepseek-v4-flash', name: 'DeepSeek-V4-Flash', reasoning },
+          { id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro', reasoning },
+        ],
+      }],
+    }))
+    const setAuto = vi.fn().mockResolvedValue(null)
+    const select = vi.fn().mockResolvedValue(true)
+    let projection: DshAutoModeProjection = {
+      active: true,
+      evidenceStatus: 'experimental-unadmitted' as const,
+      decision: {
+        turn: 1,
+        step: 0,
+        tier: 'fast' as const,
+        provider: 'deepseek-official',
+        model: 'deepseek-v4-flash',
+        reasoningEffort: 'off',
+        reasonCode: 'bounded-simple-task',
+        reason: 'Matched a bounded low-complexity task signal.',
+      },
+    }
+    const useProjection = vi.fn(() => projection)
+    const view = render(<ModelSelect
+      locked={false}
+      available
+      directory={directory}
+      load={vi.fn()}
+      select={select}
+      setAuto={setAuto}
+      {...runtime(useProjection)}
+      t={t}
+    />)
+
+    const trigger = screen.getByRole('button', { name: /Auto.*DeepSeek-V4-Flash.*Off/ })
+    fireEvent.click(trigger)
+    const autoItem = screen.getByRole('menuitemradio', { name: /Auto/ })
+    expect(autoItem.getAttribute('aria-checked')).toBe('true')
+    expect(screen.getAllByRole('menuitem')[0]?.textContent).toContain('模型')
+    expect(screen.getByText(/fast.*bounded-simple-task/i)).toBeTruthy()
+
+    projection = {
+      ...projection,
+      decision: {
+        turn: 1,
+        step: 1,
+        tier: 'strong',
+        provider: 'deepseek-official',
+        model: 'deepseek-v4-pro',
+        reasoningEffort: 'max',
+        reasonCode: 'high-complexity-task',
+        reason: 'Matched a high-complexity or high-consequence task signal.',
+      },
+    }
+    view.rerender(<ModelSelect
+      locked={false}
+      available
+      directory={directory}
+      load={vi.fn()}
+      select={select}
+      setAuto={setAuto}
+      {...runtime(useProjection)}
+      t={t}
+    />)
+    expect(trigger.getAttribute('aria-label')).toMatch(/Auto.*DeepSeek-V4-Pro.*Max/)
+    expect(screen.getByText(/strong.*high-complexity-task/i)).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('menuitem', { name: /模型/ }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'DeepSeek-V4-Flash' }))
+    await waitFor(() => {
+      expect(setAuto).toHaveBeenCalledWith(false)
+      expect(select).toHaveBeenCalledWith({
+        provider: 'deepseek-official',
+        model: 'deepseek-v4-flash',
+      })
+      expect(setAuto.mock.invocationCallOrder[0]).toBeLessThan(select.mock.invocationCallOrder[0]!)
+    })
+  })
+
+  it('shows the exact Auto model and effort even when the advisory catalog has no matching row', () => {
+    const projection: DshAutoModeProjection = {
+      active: true,
+      evidenceStatus: 'experimental-unadmitted',
+      decision: {
+        turn: 1,
+        step: 0,
+        tier: 'fallback',
+        provider: 'maintainer-provider',
+        model: 'maintainer-strong-model',
+        reasoningEffort: 'max',
+        reasonCode: 'missing-exact-route',
+        reason: 'The selected tier was unavailable, so Auto used the configured fallback.',
+      },
+    }
+    render(<ModelSelect
+      locked={false}
+      available
+      directory={createSnapshotStore(state({ groups: [] }))}
+      load={vi.fn()}
+      select={vi.fn().mockResolvedValue(true)}
+      setAuto={vi.fn().mockResolvedValue(null)}
+      {...runtime(vi.fn(() => projection))}
+      t={t}
+    />)
+
+    expect(screen.getByRole('button', {
+      name: /Auto.*maintainer-strong-model.*max/i,
+    })).toBeTruthy()
   })
 })

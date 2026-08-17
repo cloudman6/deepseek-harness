@@ -9,7 +9,7 @@
  * Scope disposal drops the directory (HMR safety).
  */
 import { Context } from '@deepseek-ai/cordis'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { createScope } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SessionId } from '@deepseek-ai/dsh-client-runtime/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
@@ -113,7 +113,13 @@ async function bench() {
       ? { parentSessionId: sid('parent'), childSessionId: id, mode: 'continuable' as const }
       : undefined,
   })
-  new TestRemote(ctx)
+  const remote = new TestRemote(ctx) as TestRemote & { commands: { execute: ReturnType<typeof vi.fn> } }
+  const execute = vi.fn((_sessionId: SessionId, _line: string) => Promise.resolve({
+    ok: true as const,
+    value: { commandId: 'auto-command', result: { kind: 'success' as const } },
+  }))
+  remote.commands = { execute }
+  ctx.provide('remote.commands', remote.commands)
   const fiber = ctx.plugin({ inject: [...inject], apply })
   await fiber.await()
   await ctx.plugin(function probe() {}).await()
@@ -123,7 +129,7 @@ async function bench() {
     return handle
   }
   return {
-    ctx, fiber, mint, calls,
+    ctx, fiber, mint, calls, execute,
     contribution: () => contribution!,
     seat: () => seats.get('conversation.input.model')!,
     hostCurrent: () => current,
@@ -180,6 +186,23 @@ describe('ui-model-selection dual entry', () => {
     expect(options.find((o: SelectOption) => o.label === 'DeepSeek-V4-Pro')).toMatchObject({ active: true })
   })
 
+  it('bridges the optional Auto control through the durable command channel', async () => {
+    const b = await bench()
+    b.mint('s1')
+    const seatFace = b.seat().inject!(sid('s1'))
+
+    await expect(seatFace.setAuto(true)).resolves.toBeNull()
+    await expect(seatFace.setAuto(false)).resolves.toBeNull()
+    expect(b.execute).toHaveBeenNthCalledWith(1, sid('s1'), '/auto')
+    expect(b.execute).toHaveBeenNthCalledWith(2, sid('s1'), '/auto off')
+
+    b.execute.mockResolvedValueOnce({
+      ok: true,
+      value: { commandId: 'auto-command', result: { kind: 'error', text: 'Auto rejected' } },
+    } as never)
+    await expect(seatFace.setAuto(true)).resolves.toBe('Auto rejected')
+  })
+
   it('a popup selection lands on the seat store — the reverse direction of the same state', async () => {
     const b = await bench()
     b.mint('s1')
@@ -187,6 +210,7 @@ describe('ui-model-selection dual entry', () => {
     const options = await b.contribution().ui.options(projection('s1'), new AbortController().signal)
     const pro = options.find((o: SelectOption) => o.label === 'DeepSeek-V4-Pro')!
     await b.contribution().ui.onSelect(pro, projection('s1'))
+    expect(b.execute).toHaveBeenCalledWith(sid('s1'), '/auto off')
     expect(seatFace.directory.getSnapshot().current).toEqual({
       provider: 'deepseek-official',
       model: 'deepseek-v4-pro',

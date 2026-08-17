@@ -22,8 +22,14 @@ import {
   IconWarningOutline16, Toast,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
+import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { ModelSelectInjected } from './slots.ts'
 import css from './ModelSelect.module.css'
+
+/** Full model-seat props: runtime owner/projection shares, injected verbs, and locale. */
+export type ModelSelectProps = PropsRuntime<'conversation.input.model'>
+  & InjectFace<ModelSelectInjected>
+  & PropsLocale<'model'>
 
 /** Which pane the dropdown shows: the two-row root or one drilled-in list. */
 type Pane = 'root' | 'model' | 'effort'
@@ -43,9 +49,9 @@ interface EffortChoice {
  * @returns the trigger and, while open, the two-level menu.
  */
 export function ModelSelect(
-  { locked, available, directory, load, select, t }:
-  ModelSelectInjected & { locked: boolean } & PropsLocale<'model'>,
+  { locked, available, directory, load, select, setAuto, useProjection, t }: ModelSelectProps,
 ) {
+  const auto = useProjection('dshAutoMode')
   const state = useSyncExternalStore(
     fn => directory.subscribe(fn),
     () => directory.getSnapshot(),
@@ -76,14 +82,21 @@ export function ModelSelect(
           : { reasoningEffort: model.reasoning.defaultEffort },
       } satisfies ModelSelection,
     }))), [state.groups])
-  const selectedIndex = state.current === null
+  const effectiveSelection: ModelSelection | null = auto?.active && auto.decision !== null
+    ? {
+      provider: auto.decision.provider,
+      model: auto.decision.model,
+      reasoningEffort: auto.decision.reasoningEffort,
+    }
+    : state.current
+  const selectedIndex = effectiveSelection === null
     ? -1
-    : choices.findIndex(c => c.selection.provider === state.current?.provider && c.selection.model === state.current.model)
+    : choices.findIndex(c => c.selection.provider === effectiveSelection.provider && c.selection.model === effectiveSelection.model)
   const currentChoice = choices[selectedIndex]
   const reasoning = currentChoice?.model.reasoning
-  const effectiveEffort = state.current?.reasoningEffort ?? reasoning?.defaultEffort
+  const effectiveEffort = effectiveSelection?.reasoningEffort ?? reasoning?.defaultEffort
   const effortLabel = reasoning === undefined
-    ? undefined
+    ? auto?.active ? effectiveEffort : undefined
     : effectiveEffort === undefined
       ? t('effort.providerDefault')
       : reasoning.efforts.find(level => level.id === effectiveEffort)?.name ?? effectiveEffort
@@ -100,7 +113,8 @@ export function ModelSelect(
         ...effort.description === undefined ? {} : { description: effort.description },
       })),
     ], [reasoning, t])
-  const busy = state.status === 'selecting'
+  const [autoBusy, setAutoBusy] = useState(false)
+  const busy = state.status === 'selecting' || autoBusy
 
   const reload = (): void => {
     lastActionRef.current = 'load'
@@ -178,37 +192,73 @@ export function ModelSelect(
     }
   }
 
+  const autoFailure = (message: string): void => {
+    toastSeq.current += 1
+    setToast({ seq: toastSeq.current, text: t('error.auto', { message }) })
+  }
+
+  const changeAuto = (active: boolean, after?: () => Promise<boolean>): void => {
+    setAutoBusy(true)
+    void setAuto(active).then(async (failure) => {
+      if (failure !== null) {
+        autoFailure(failure)
+        return false
+      }
+      return after === undefined ? true : after()
+    }).then((accepted) => {
+      if (after === undefined) {
+        if (accepted) close(true)
+        return
+      }
+      settleSelection(accepted)
+    }, (reason: unknown) => {
+      autoFailure(reason instanceof Error ? reason.message : String(reason))
+    }).finally(() => { setAutoBusy(false) })
+  }
+
   const choose = (selection: ModelSelection): void => {
-    if (state.current?.provider === selection.provider && state.current.model === selection.model) {
+    if (!auto?.active && state.current?.provider === selection.provider && state.current.model === selection.model) {
       close(true)
       return
     }
     lastActionRef.current = 'select'
-    void select(selection).then(settleSelection)
+    if (auto?.active) {
+      changeAuto(false, () => select(selection))
+    } else {
+      void select(selection).then(settleSelection)
+    }
   }
 
   const chooseEffort = (effort: string | undefined): void => {
-    if (state.current === null) return
-    if (effectiveEffort === effort) {
+    if (effectiveSelection === null) return
+    if (!auto?.active && effectiveEffort === effort) {
       close(true)
       return
     }
     const selection: ModelSelection = {
-      provider: state.current.provider,
-      model: state.current.model,
+      provider: effectiveSelection.provider,
+      model: effectiveSelection.model,
       ...effort === undefined ? {} : { reasoningEffort: effort },
     }
     lastActionRef.current = 'select'
-    void select(selection).then(settleSelection)
+    if (auto?.active) {
+      changeAuto(false, () => select(selection))
+    } else {
+      void select(selection).then(settleSelection)
+    }
   }
 
-  const modelLabel = currentChoice?.model.name ?? t('trigger.fallback')
-  const triggerLabel = effortLabel === undefined ? modelLabel : `${modelLabel} · ${effortLabel}`
-  const triggerAria = currentChoice === undefined
-    ? t('trigger.selectAria')
-    : effortLabel === undefined
-      ? t('trigger.aria', { model: modelLabel })
-      : t('trigger.ariaEffort', { model: modelLabel, effort: effortLabel })
+  const modelLabel = currentChoice?.model.name
+    ?? (auto?.active && auto.decision !== null ? auto.decision.model : t('trigger.fallback'))
+  const autoPrefix = auto?.active ? `${t('menu.auto')} · ` : ''
+  const triggerLabel = effortLabel === undefined ? `${autoPrefix}${modelLabel}` : `${autoPrefix}${modelLabel} · ${effortLabel}`
+  const triggerAria = auto?.active && auto.decision !== null && effortLabel !== undefined
+    ? t('trigger.autoAria', { model: modelLabel, effort: effortLabel })
+    : currentChoice === undefined
+      ? t('trigger.selectAria')
+      : effortLabel === undefined
+        ? t('trigger.aria', { model: modelLabel })
+        : t('trigger.ariaEffort', { model: modelLabel, effort: effortLabel })
   itemRefs.current = []
   let itemIndex = 0
   const itemRef = () => {
@@ -236,6 +286,7 @@ export function ModelSelect(
           }
         }}
       >
+        {auto?.active && <span className={css.autoTrigger}>{t('menu.auto')}</span>}
         <span className={css.triggerLabel}>{modelLabel}</span>
         {effortLabel !== undefined && <span className={css.triggerEffort}>{effortLabel}</span>}
         <IconChevronDownOutline14 className={clsx(css.chevron, open && css.chevronOpen)} />
@@ -251,6 +302,40 @@ export function ModelSelect(
         >
           {pane === 'root' && (
             <>
+              {auto !== undefined && (
+                <>
+                  <button
+                    ref={itemRef()}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={auto.active}
+                    className={clsx(css.autoOption, auto.active && css.selected)}
+                    disabled={busy}
+                    onClick={() => {
+                      if (auto.active) close(true)
+                      else changeAuto(true)
+                    }}
+                  >
+                    <span className={css.optionCopy}>
+                      <span className={css.modelName}>{t('menu.auto')}</span>
+                      <span className={css.description}>{t('menu.autoDescription')}</span>
+                    </span>
+                    <span className={css.check}>{auto.active ? <IconCheckOutline16 /> : null}</span>
+                  </button>
+                  {auto.active && (
+                    <div className={css.autoDetails} role="status">
+                      {auto.decision !== null && (
+                        <>
+                          <span className={css.autoDecision}>{auto.decision.tier} · {auto.decision.reasonCode}</span>
+                          <span>{auto.decision.reason}</span>
+                        </>
+                      )}
+                      <span className={css.autoEvidence}>{t('menu.autoEvidence')}</span>
+                    </div>
+                  )}
+                  <div className={css.divider} />
+                </>
+              )}
               <button ref={itemRef()} type="button" role="menuitem" className={css.cell} onClick={() => { setPane('model') }}>
                 <span className={css.cellLabel}>{t('menu.model')}</span>
                 <span className={css.cellValue}>{modelLabel}</span>
