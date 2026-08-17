@@ -12,6 +12,8 @@ Phase 0P Auto 插件可以在 Host 边界选择提供方、模型和推理强度
 
 维护者 fork 以可选 `dshAutoMode` Session 投影扩展现有 `conversation.input.model` 入口。投影存在时，根菜单把 Auto 放在 Model 和 Effort 之前，用标准对勾图标标记启用的 Auto 行，并在最近的层级、原因代码、解释和 `experimental-unadmitted` 状态之前，以明确的“实际选择”标签显示有效模型和推理强度。紧凑触发器在投影给出的模型和推理强度前添加 Auto。该明确标签把 Host 选择事实与 Auto 详情下方保留的手动 Model 和 Effort 控件区分开。
 
+初始投影选择只建立显示状态，不播放动画。之后提供方、模型或 effort 发生改变时，有效 route 会短暂高亮并增加文字切换提示。提示与 route 使用同一项投影事实；它不根据任务、目录刷新或客户端定时器推断切换。`prefers-reduced-motion` 会取消位移动画，同时保留可见文字。
+
 外部 Phase 0P 插件持有 Auto 状态和决定。它追加 `dsh-auto-mode/mode` 与 `dsh-auto-mode/selection` 事件，经 `ctx.sessionProjections` 折叠，并注册 `/auto [off]`。Session 投影帧在请求运行期间更新浏览器，因此菜单不会推断路由，也不会轮询模型目录。
 
 模型选择客户端经现有命令 Remote 调用 `/auto` 或 `/auto off`。无论通过 composer 还是 `/model` 选择手工模型或推理强度，客户端都会先停用 Auto，再提交普通 `session.selectModel` 请求。投影缺席时，标准模型菜单的行为保持不变；已寻址 subagent 会话仍不可用。当建议性模型目录缺少 Auto 的有效路由时，触发器仍显示投影中的确切模型与推理强度 id，而不会隐藏请求事实。
@@ -20,7 +22,7 @@ Phase 0P Auto 插件可以在 Host 边界选择提供方、模型和推理强度
 
 ## 验证
 
-组件测试固定菜单顺序、勾选状态、明确的实际选择标签与模型／推理强度值、投影提供方／模型／推理强度、目录缺项时的显示、实时投影替换、路由解释，以及先停用 Auto 再执行手工选择的顺序。浏览器插件测试固定 `/auto` 与 `/auto off` 的命令传递、`/model` 互斥和错误映射。仓库内的无密钥完整 Web snapshot 固定 Auto 为首个已勾选行、带明确标签且目录缺少的投影路由、其 `strong` 原因和未准入标签。挂载外部插件的真实 Web 组合验证：运行简单任务时，可见选择会在完成前从 Flash/High 变为 Auto/Flash/Off，并显示其 `fast` 原因；手工选择 Pro 后恢复普通触发器。
+组件测试固定菜单顺序、勾选状态、明确的实际选择标签与模型／推理强度值、投影提供方／模型／推理强度、目录缺项时的显示、实时投影替换、初始选择不播放动画、切换提示、路由解释，以及先停用 Auto 再执行手工选择的顺序。浏览器插件测试固定 `/auto` 与 `/auto off` 的命令传递、`/model` 互斥和错误映射。仓库内的无密钥完整 Web snapshot 固定 Auto 为首个已勾选行、投影从目录缺少的 fast route 切换到目录缺少的 strong route、由此产生的切换提示和未准入标签。挂载外部插件的真实 Web 组合验证：运行简单任务时，可见选择会在完成前从 Flash/High 变为 Auto/Flash/Off，并显示其 `fast` 原因；手工选择 Pro 后恢复普通触发器。
 
 ## 考虑过的替代方案
 

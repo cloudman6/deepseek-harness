@@ -247,6 +247,7 @@ describe('ModelSelect reasoning effort', () => {
     expect(screen.getByText('实际选择')).toBeTruthy()
     expect(screen.getByText('DeepSeek-V4-Flash · Off')).toBeTruthy()
     expect(screen.getByText(/fast.*bounded-simple-task/i)).toBeTruthy()
+    expect(screen.queryByText('已切换模型与推理等级')).toBeNull()
 
     projection = {
       ...projection,
@@ -274,6 +275,9 @@ describe('ModelSelect reasoning effort', () => {
     expect(trigger.getAttribute('aria-label')).toMatch(/Auto.*DeepSeek-V4-Pro.*Max/)
     expect(screen.getByText('DeepSeek-V4-Pro · Max')).toBeTruthy()
     expect(screen.getByText(/strong.*high-complexity-task/i)).toBeTruthy()
+    await waitFor(() => {
+      expect(screen.getByText('已切换模型与推理等级')).toBeTruthy()
+    })
 
     fireEvent.click(screen.getByRole('menuitem', { name: /模型/ }))
     fireEvent.click(screen.getByRole('menuitemradio', { name: 'DeepSeek-V4-Flash' }))

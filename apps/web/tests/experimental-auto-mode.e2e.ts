@@ -36,6 +36,21 @@ const AUTO: AutoProjection = {
   decision: {
     turn: 1,
     step: 0,
+    tier: 'fast',
+    provider: 'maintainer-provider',
+    model: 'maintainer-fast-model',
+    reasoningEffort: 'off',
+    reasonCode: 'bounded-simple-task',
+    reason: 'Matched a bounded low-complexity task signal.',
+  },
+}
+
+const SWITCHED_AUTO: AutoProjection = {
+  active: true,
+  evidenceStatus: 'experimental-unadmitted',
+  decision: {
+    turn: 2,
+    step: 0,
     tier: 'strong',
     provider: 'maintainer-provider',
     model: 'maintainer-strong-model',
@@ -44,6 +59,8 @@ const AUTO: AutoProjection = {
     reason: 'Matched a high-complexity or high-consequence task signal.',
   },
 }
+
+const SWITCH_MARKER = 'experimental-auto-mode-switch'
 
 describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () => {
   let scaffold: WebScaffold
@@ -69,7 +86,12 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
       key: 'dshAutoMode',
       schema: { parse: value => value as AutoProjection },
       init: () => AUTO,
-      apply: state => state,
+      apply: (state, event) => {
+        const candidate = event as { type?: unknown; data?: { title?: unknown } }
+        return candidate.type === 'session/title' && candidate.data?.title === SWITCH_MARKER
+          ? SWITCHED_AUTO
+          : state
+      },
       view: state => state,
       stateVersion: 1,
     })
@@ -87,10 +109,10 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
     await scaffold?.close()
   })
 
-  it('shows Auto first, checked, and explains the exact projected route', async () => {
+  it('shows Auto first, checked, and marks a changed projected route', async () => {
     onTestFailed(() => saveFailureShot(page, 'web-e2e-experimental-auto-mode'))
     const trigger = page.getByRole('button', {
-      name: /Auto.*maintainer-strong-model.*max/i,
+      name: /Auto.*maintainer-fast-model.*off/i,
     })
     await trigger.waitFor({ timeout: 15_000 })
     await trigger.click()
@@ -98,9 +120,21 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
     const auto = page.getByRole('menuitemradio', { name: /Auto/ })
     await expect.poll(() => auto.getAttribute('aria-checked')).toBe('true')
     await page.getByText('实际选择', { exact: true }).waitFor()
+    await page.getByText('maintainer-fast-model · off', { exact: true }).waitFor()
+    await page.getByText('fast · bounded-simple-task', { exact: true }).waitFor()
+    await expect.poll(async () => await page.getByText('已切换模型与推理等级', { exact: true }).count()).toBe(0)
+    await page.getByText('实验模式 · 未经质量准入', { exact: true }).waitFor()
+
+    const agent = scaffold.ctx.agents.roots()[0]
+    if (agent === undefined) throw new Error('experimental Auto fixture opened no root Agent')
+    agent.session.append('session/title', {
+      title: SWITCH_MARKER,
+      messageSeqs: [],
+      source: { kind: 'fallback' },
+    })
     await page.getByText('maintainer-strong-model · max', { exact: true }).waitFor()
     await page.getByText('strong · high-complexity-task', { exact: true }).waitFor()
-    await page.getByText('实验模式 · 未经质量准入', { exact: true }).waitFor()
+    await page.getByText('已切换模型与推理等级', { exact: true }).waitFor()
     const snapshot = await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
     expect(tripwire.pageErrors).toEqual([])

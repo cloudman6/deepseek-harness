@@ -30,6 +30,21 @@
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
+.triggerChanged {
+  background: var(--dsw-alias-interactive-bg-hover);
+  animation: auto-trigger-switch 480ms ease-out;
+}
+
+@keyframes auto-trigger-switch {
+  from {
+    box-shadow: 0 0 0 3px var(--dsw-alias-border-l3);
+  }
+
+  to {
+    box-shadow: none;
+  }
+}
+
 .trigger:focus-visible {
   box-shadow: 0 0 0 2px var(--dsw-alias-border-l3);
 }
@@ -213,6 +228,33 @@
   margin-bottom: 4px;
 }
 
+.autoRouteChanged {
+  margin: -4px -6px 0;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  animation: auto-route-switch 480ms ease-out;
+}
+
+@keyframes auto-route-switch {
+  from {
+    opacity: 0.4;
+    transform: translateY(-2px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .autoRouteChanged,
+  .triggerChanged {
+    animation: none;
+  }
+}
+
 .autoRouteLabel {
   color: var(--dsw-alias-label-tertiary);
   font-size: 11px;
@@ -224,6 +266,13 @@
   color: var(--dsw-alias-label-primary);
   font-size: 13px;
   line-height: 18px;
+  font-weight: 600;
+}
+
+.autoSwitchNotice {
+  color: var(--dsw-alias-state-warn-label);
+  font-size: 11px;
+  line-height: 16px;
   font-weight: 600;
 }
 

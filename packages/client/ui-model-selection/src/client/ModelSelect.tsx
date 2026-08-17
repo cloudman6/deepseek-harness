@@ -34,6 +34,8 @@ export type ModelSelectProps = PropsRuntime<'conversation.input.model'>
 /** Which pane the dropdown shows: the two-row root or one drilled-in list. */
 type Pane = 'root' | 'model' | 'effort'
 
+const AUTO_SWITCH_NOTICE_MS = 3_000
+
 /** One dynamic effort row; undefined means preserve the provider default. */
 interface EffortChoice {
   key: string
@@ -114,7 +116,27 @@ export function ModelSelect(
       })),
     ], [reasoning, t])
   const [autoBusy, setAutoBusy] = useState(false)
+  const [switchedRouteKey, setSwitchedRouteKey] = useState<string | null>(null)
+  const previousAutoRouteKeyRef = useRef<string | null>(null)
   const busy = state.status === 'selecting' || autoBusy
+  const autoRouteKey = auto?.active && auto.decision !== null
+    ? `${auto.decision.provider}\u0000${auto.decision.model}\u0000${auto.decision.reasoningEffort}`
+    : null
+  const autoRouteSwitched = switchedRouteKey !== null && switchedRouteKey === autoRouteKey
+
+  useEffect(() => {
+    const previous = previousAutoRouteKeyRef.current
+    previousAutoRouteKeyRef.current = autoRouteKey
+    if (previous === null || autoRouteKey === null || previous === autoRouteKey) {
+      setSwitchedRouteKey(null)
+      return
+    }
+    setSwitchedRouteKey(autoRouteKey)
+    const timeout = window.setTimeout(() => {
+      setSwitchedRouteKey(current => current === autoRouteKey ? null : current)
+    }, AUTO_SWITCH_NOTICE_MS)
+    return () => { window.clearTimeout(timeout) }
+  }, [autoRouteKey])
 
   const reload = (): void => {
     lastActionRef.current = 'load'
@@ -271,7 +293,7 @@ export function ModelSelect(
       <button
         ref={triggerRef}
         type="button"
-        className={css.trigger}
+        className={clsx(css.trigger, autoRouteSwitched && css.triggerChanged)}
         aria-label={triggerAria}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -326,7 +348,7 @@ export function ModelSelect(
                     <div className={css.autoDetails} role="status">
                       {auto.decision !== null && (
                         <>
-                          <span className={css.autoRoute}>
+                          <span className={clsx(css.autoRoute, autoRouteSwitched && css.autoRouteChanged)}>
                             <span className={css.autoRouteLabel}>{t('menu.autoEffective')}</span>
                             <span
                               className={css.autoRouteValue}
@@ -334,6 +356,9 @@ export function ModelSelect(
                             >
                               {modelLabel} · {effortLabel ?? auto.decision.reasoningEffort}
                             </span>
+                            {autoRouteSwitched && (
+                              <span className={css.autoSwitchNotice}>{t('menu.autoSwitched')}</span>
+                            )}
                           </span>
                           <span className={css.autoDecision}>{auto.decision.tier} · {auto.decision.reasonCode}</span>
                           <span>{auto.decision.reason}</span>
