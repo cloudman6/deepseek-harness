@@ -13,7 +13,7 @@ const current = {
 }
 
 describe('Auto route-change chat node', () => {
-  it('anchors a route notice immediately after the triggering user message', () => {
+  it('anchors a route notice at its durable selection event', () => {
     const event = {
       type: 'dsh-auto-mode/selection',
       seq: 24,
@@ -41,7 +41,6 @@ describe('Auto route-change chat node', () => {
     })
     const reader = {
       previous: (kind: string) => {
-        if (kind === 'input-message') return predecessor({ kind: 'user' as const, seq: 17 })
         if (kind === 'auto-route-change') {
           return predecessor({
             current: {
@@ -73,6 +72,6 @@ describe('Auto route-change chat node', () => {
       current: new Map(),
     } as never) as ChatConversationViewNode
 
-    expect(node.anchorSeq).toBe(17.05)
+    expect(node.anchorSeq).toBe(24)
   })
 })
