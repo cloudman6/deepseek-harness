@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import type { Browser, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { afterAll, beforeAll, describe, expect, it, onTestFailed } from 'vitest'
+import { createUserMessage } from '@deepseek-ai/dsh-llm'
 import {
   assertFixtureInventory, captureStableAria, compareOrRefreshGolden,
   launchWebScaffold, watchConsole, webSnapshotMode, type WebScaffold,
@@ -63,6 +64,8 @@ const SWITCHED_AUTO: AutoProjection = {
 }
 
 const SELECTION_EVENT = 'dsh-auto-mode/selection'
+const INITIAL_TASK = 'Format a bounded README change.'
+const SWITCH_TASK = 'Review an authentication race condition.'
 
 function selectionData(decision: NonNullable<AutoProjection['decision']>) {
   return {
@@ -79,6 +82,16 @@ function appendAutoSelection(
 ): void {
   (agent.session as { append(type: string, data: ReturnType<typeof selectionData>): void })
     .append(SELECTION_EVENT, selectionData(decision))
+}
+
+/** Append the user input that precedes one Auto selection in the live timeline. */
+function appendUserInput(agent: { session: unknown }, text: string): void {
+  (agent.session as {
+    append(type: 'user/message', data: ReturnType<typeof createUserMessage>, options: { surfaceOp: 'append' }): void
+  }).append('user/message', createUserMessage({
+    content: [{ type: 'text', text }],
+    source: { kind: 'user' },
+  }), { surfaceOp: 'append' })
 }
 
 describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () => {
@@ -139,6 +152,7 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
     await connectFreshWorkspaceZh(page, scaffold.workspaceCwd, 'experimental-auto-mode')
     const agent = scaffold.ctx.agents.roots()[0]
     if (agent === undefined) throw new Error('experimental Auto fixture opened no root Agent')
+    appendUserInput(agent, INITIAL_TASK)
     appendAutoSelection(agent, AUTO.decision!)
   }, 120_000)
 
@@ -167,7 +181,9 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
 
     const agent = scaffold.ctx.agents.roots()[0]
     if (agent === undefined) throw new Error('experimental Auto fixture opened no root Agent')
+    appendUserInput(agent, SWITCH_TASK)
     appendAutoSelection(agent, SWITCHED_AUTO.decision!)
+    await page.getByText(SWITCH_TASK, { exact: true }).waitFor()
     await page.getByText('strong · high-complexity-task', { exact: true }).waitFor()
     const rollingValues = page.locator('[class*="routeRollTrack"]')
     await expect.poll(() => rollingValues.count()).toBe(4)
@@ -184,6 +200,8 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
       .toMatch(/auto-route-value-roll$/)
     await expect.poll(() => rollingValues.first().evaluate(element => getComputedStyle(element).animationDuration))
       .toBe('1.2s')
+    await expect.poll(() => rollingValues.first().evaluate(element => getComputedStyle(element).animationPlayState))
+      .toBe('running')
     const changedTargets = page.locator('[class*="routeRollTarget"]')
     await expect.poll(() => changedTargets.count()).toBe(4)
     await expect.poll(() => changedTargets.first().evaluate(element => getComputedStyle(element).animationDelay))
@@ -192,6 +210,8 @@ describe.skipIf(MODE === 'record')('web e2e: experimental Auto model menu', () =
     await expect.poll(() => changedAuto.count()).toBe(1)
     await expect.poll(() => changedAuto.evaluate(element => getComputedStyle(element).animationName))
       .toMatch(/auto-route-target-breathe$/)
+    await expect.poll(() => changedAuto.evaluate(element => getComputedStyle(element).animationPlayState))
+      .toBe('running')
     const snapshot = await captureStableAria(page, '[role="menu"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(UI_EXPECTED, snapshot, MODE)
     expect(tripwire.pageErrors).toEqual([])
