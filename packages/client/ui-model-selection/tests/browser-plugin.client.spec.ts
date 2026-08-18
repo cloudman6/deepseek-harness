@@ -77,6 +77,9 @@ async function bench() {
       return Promise.resolve({ result: { ok: true as const, value: { selected: current } } })
     },
   } } })
+  ctx.provide('conversationEvents', {
+    register: () => () => {},
+  })
   // Whether the Host reports an adapter for the current route; the composer
   // block follows this, never catalog membership.
   let routable = true
