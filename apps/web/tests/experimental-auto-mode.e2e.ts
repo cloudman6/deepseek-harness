@@ -20,6 +20,7 @@ const SNAPSHOT_DIR = fileURLToPath(new URL('./snapshots/experimental-auto-mode',
 const UI_ZH_EXPECTED = fileURLToPath(new URL('./snapshots/experimental-auto-mode/ui.zh.expected.md', import.meta.url))
 const UI_EN_EXPECTED = fileURLToPath(new URL('./snapshots/experimental-auto-mode/ui.en.expected.md', import.meta.url))
 const MODE = webSnapshotMode()
+const AA_SNAPSHOT_ID = 'aa-model-menu-fixture-2026-08-22'
 interface AutoProjection {
   active: boolean
   evidenceStatus: 'experimental-unadmitted'
@@ -29,6 +30,7 @@ interface AutoProjection {
     requestedHandlingLevel: 'light' | 'standard' | 'deep'
     handlingLevel: 'light' | 'standard' | 'deep'
     routeBasis: 'aa-matched' | 'configured-deep-fallback'
+    aaSnapshotId?: string
     fallback: boolean
     provider: string
     model: string
@@ -48,6 +50,7 @@ const AUTO: AutoProjection = {
     requestedHandlingLevel: 'light',
     handlingLevel: 'light',
     routeBasis: 'aa-matched',
+    aaSnapshotId: AA_SNAPSHOT_ID,
     fallback: false,
     provider: 'maintainer-provider',
     model: 'maintainer-model-a',
@@ -66,6 +69,7 @@ const MODEL_ONLY_AUTO: AutoProjection = {
     requestedHandlingLevel: 'light',
     handlingLevel: 'light',
     routeBasis: 'aa-matched',
+    aaSnapshotId: AA_SNAPSHOT_ID,
     fallback: false,
     provider: 'maintainer-provider',
     model: 'maintainer-model-b',
@@ -85,6 +89,7 @@ const EFFORT_ONLY_AUTO: AutoProjection = {
     requestedHandlingLevel: 'light',
     handlingLevel: 'light',
     routeBasis: 'aa-matched',
+    aaSnapshotId: AA_SNAPSHOT_ID,
     fallback: false,
     provider: 'maintainer-provider',
     model: 'maintainer-model-b',
@@ -104,6 +109,7 @@ const SWITCHED_AUTO: AutoProjection = {
     requestedHandlingLevel: 'deep',
     handlingLevel: 'deep',
     routeBasis: 'aa-matched',
+    aaSnapshotId: AA_SNAPSHOT_ID,
     fallback: false,
     provider: 'maintainer-provider',
     model: 'maintainer-model-c',
@@ -123,6 +129,7 @@ const LEVEL_ONLY_AUTO: AutoProjection = {
     requestedHandlingLevel: 'standard',
     handlingLevel: 'standard',
     routeBasis: 'aa-matched',
+    aaSnapshotId: AA_SNAPSHOT_ID,
     fallback: false,
     provider: 'maintainer-provider',
     model: 'maintainer-model-c',

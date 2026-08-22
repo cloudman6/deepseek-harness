@@ -25,6 +25,7 @@ describe('Auto route-change chat node', () => {
         handlingLevel: 'deep',
         routeBasis: 'aa-matched',
         fallback: false,
+        aaSnapshotId: 'aa-chat-fixture-2026-08-22',
         reasonCode: 'high-complexity-task',
         reason: 'Matched a high-complexity task signal.',
       },
@@ -77,6 +78,8 @@ describe('Auto route-change chat node', () => {
     }) as ChatConversationViewNode
 
     expect(node.anchorSeq).toBe(24)
+    expect((node.data as { readonly current: { readonly aaSnapshotId?: string } }).current.aaSnapshotId)
+      .toBe('aa-chat-fixture-2026-08-22')
   })
 
   it('keeps a notice when only the task-handling level changes', () => {
@@ -91,6 +94,7 @@ describe('Auto route-change chat node', () => {
         handlingLevel: 'deep',
         routeBasis: 'aa-matched',
         fallback: false,
+        aaSnapshotId: 'aa-chat-fixture-2026-08-22',
         reasonCode: 'high-complexity-task',
         reason: 'Matched a high-complexity task signal.',
       },

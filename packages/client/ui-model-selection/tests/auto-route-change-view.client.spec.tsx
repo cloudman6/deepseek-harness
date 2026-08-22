@@ -20,8 +20,14 @@ function node(
 ) {
   return {
     data: {
-      previous: { provider: 'deepseek-official', handlingLevel: 'light', routeBasis: 'aa-matched', ...previous },
-      current: { provider: 'deepseek-official', handlingLevel: 'light', routeBasis: 'aa-matched', ...current },
+      previous: {
+        provider: 'deepseek-official', handlingLevel: 'light', routeBasis: 'aa-matched',
+        aaSnapshotId: 'aa-chat-fixture-2026-08-22', ...previous,
+      },
+      current: {
+        provider: 'deepseek-official', handlingLevel: 'light', routeBasis: 'aa-matched',
+        aaSnapshotId: 'aa-chat-fixture-2026-08-22', ...current,
+      },
       reasonCode: 'bounded-simple-task',
       reason: 'Matched a bounded low-complexity task signal.',
     },
@@ -71,6 +77,7 @@ describe('Auto route-change chat view', () => {
     expect(screen.getByText('任务处理级别：常规 →', { exact: true })).toBeTruthy()
     expect(view.container.querySelector(`.${css.changedValue}`)?.textContent).toBe('深度')
     expect(screen.getByText(/依据：AA 数据.*bounded-simple-task/i)).toBeTruthy()
+    expect(screen.getByText('AA 快照：aa-chat-fixture-2026-08-22')).toBeTruthy()
   })
 
   it('omits reasoning effort when the route has no effort dimension', () => {

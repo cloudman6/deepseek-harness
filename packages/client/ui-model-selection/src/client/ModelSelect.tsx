@@ -470,6 +470,11 @@ export function ModelSelect(
                             basis: routeBasisLabel(auto.decision.routeBasis, t),
                             code: auto.decision.reasonCode,
                           })}</span>
+                          <span>{auto.decision.routeBasis === 'configured-deep-fallback'
+                            ? t('menu.autoSnapshotNotApplicable')
+                            : auto.decision.aaSnapshotId === undefined
+                              ? t('menu.autoSnapshotUnavailable')
+                              : t('menu.autoSnapshot', { snapshot: auto.decision.aaSnapshotId })}</span>
                           <span>{auto.decision.reason}</span>
                         </>
                       )}

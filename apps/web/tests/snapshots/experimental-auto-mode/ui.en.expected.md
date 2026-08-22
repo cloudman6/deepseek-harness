@@ -2,7 +2,7 @@
   - menuitemradio "Auto Select an available route for the required task-handling level" [checked]:
     - text: Auto Select an available route for the required task-handling level
     - img
-  - status: "Effective selection maintainer-model-c · high Auto route updated Task-handling level: Standard Basis: AA data · default-standard-task The task requires Standard handling. AA-informed heuristic · not project-Benchmark validated"
+  - status: "Effective selection maintainer-model-c · high Auto route updated Task-handling level: Standard Basis: AA data · default-standard-task AA snapshot: aa-model-menu-fixture-2026-08-22 The task requires Standard handling. AA-informed heuristic · not project-Benchmark validated"
   - menuitem "Model maintainer-model-c":
     - text: Model maintainer-model-c
     - img

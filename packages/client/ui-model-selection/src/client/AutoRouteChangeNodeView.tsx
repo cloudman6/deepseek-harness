@@ -52,6 +52,11 @@ export function AutoRouteChangeNodeView({ node, t }: AutoRouteChangeNodeViewProp
           basis: basisLabel(data.current.routeBasis, t),
           code: data.reasonCode,
         })}</span>
+        <span>{data.current.routeBasis === 'configured-deep-fallback'
+          ? t('menu.autoSnapshotNotApplicable')
+          : data.current.aaSnapshotId === undefined
+            ? t('menu.autoSnapshotUnavailable')
+            : t('menu.autoSnapshot', { snapshot: data.current.aaSnapshotId })}</span>
         <span className={css.reason}>{data.reason}</span>
       </div>
     </section>

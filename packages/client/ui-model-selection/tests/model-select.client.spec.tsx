@@ -227,6 +227,7 @@ describe('ModelSelect reasoning effort', () => {
         provider: 'deepseek-official',
         model: 'deepseek-v4-flash',
         reasoningEffort: 'off',
+        aaSnapshotId: 'aa-ui-fixture-2026-08-22',
         reasonCode: 'bounded-simple-task',
         reason: 'Matched a bounded low-complexity task signal.',
       },
@@ -252,6 +253,7 @@ describe('ModelSelect reasoning effort', () => {
     expect(screen.getByText('DeepSeek-V4-Flash · Off')).toBeTruthy()
     expect(screen.getByText('任务处理级别：轻量')).toBeTruthy()
     expect(screen.getByText(/依据：AA 数据.*bounded-simple-task/i)).toBeTruthy()
+    expect(screen.getByText('AA 快照：aa-ui-fixture-2026-08-22')).toBeTruthy()
     expect(screen.queryByText('已更新 Auto 路由')).toBeNull()
 
     projection = {
@@ -267,6 +269,7 @@ describe('ModelSelect reasoning effort', () => {
         provider: 'deepseek-official',
         model: 'deepseek-v4-pro',
         reasoningEffort: 'max',
+        aaSnapshotId: 'aa-ui-fixture-2026-08-22',
         reasonCode: 'high-complexity-task',
         reason: 'Matched a high-complexity or high-consequence task signal.',
       },
@@ -312,6 +315,7 @@ describe('ModelSelect reasoning effort', () => {
         provider: 'deepseek-official',
         model: 'deepseek-v4-pro',
         reasoningEffort: 'high',
+        aaSnapshotId: 'aa-ui-fixture-2026-08-22',
         reasonCode: 'standard-effort-task',
         reason: 'The current step needs less reasoning effort.',
       },
@@ -382,6 +386,7 @@ describe('ModelSelect reasoning effort', () => {
     })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /Auto.*maintainer-fallback-model.*max/i }))
     expect(screen.getByText(/依据：配置的深度 fallback.*missing-exact-route/i)).toBeTruthy()
+    expect(screen.getByText('AA 快照：不适用（配置的 fallback）')).toBeTruthy()
   })
 
   it('animates and reports a handling-level-only decision change', async () => {
@@ -396,6 +401,7 @@ describe('ModelSelect reasoning effort', () => {
       provider: 'deepseek-official',
       model: 'deepseek-v4-flash',
       reasoningEffort: 'high',
+      aaSnapshotId: 'aa-ui-fixture-2026-08-22',
       reasonCode: 'bounded-simple-task',
       reason: 'A bounded task.',
     }

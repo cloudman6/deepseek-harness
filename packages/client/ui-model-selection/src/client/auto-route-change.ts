@@ -8,6 +8,7 @@ interface AutoRoute {
   readonly reasoningEffort?: string
   readonly handlingLevel: 'light' | 'standard' | 'deep'
   readonly routeBasis: 'aa-matched' | 'configured-deep-fallback'
+  readonly aaSnapshotId?: string
 }
 
 /** Durable selection facts emitted by the external Host plugin. */
@@ -67,6 +68,8 @@ function selection(event: SessionEvent): AutoRouteDecision | undefined {
     || typeof data.provider !== 'string'
     || typeof data.model !== 'string'
     || (data.reasoningEffort !== undefined && typeof data.reasoningEffort !== 'string')
+    || (data.aaSnapshotId !== undefined
+      && (typeof data.aaSnapshotId !== 'string' || data.aaSnapshotId === ''))
     || !['light', 'standard', 'deep'].includes(handlingLevel as string)
     || !['aa-matched', 'configured-deep-fallback'].includes(routeBasis as string)
     || typeof data.reasonCode !== 'string'
@@ -78,6 +81,7 @@ function selection(event: SessionEvent): AutoRouteDecision | undefined {
       ...(data.reasoningEffort === undefined ? {} : { reasoningEffort: data.reasoningEffort }),
       handlingLevel: handlingLevel as AutoRoute['handlingLevel'],
       routeBasis: routeBasis as AutoRoute['routeBasis'],
+      ...(data.aaSnapshotId === undefined ? {} : { aaSnapshotId: data.aaSnapshotId }),
     },
     reasonCode: data.reasonCode,
     reason: data.reason,

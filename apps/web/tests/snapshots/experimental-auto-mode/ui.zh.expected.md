@@ -2,7 +2,7 @@
   - menuitemradio "Auto 根据任务处理级别自动选择可用路由" [checked]:
     - text: Auto 根据任务处理级别自动选择可用路由
     - img
-  - status: 实际选择 maintainer-model-c · high 已更新 Auto 路由 任务处理级别： 常规 依据：AA 数据 · default-standard-task The task requires Standard handling. AA 启发式路由 · 未经项目 Benchmark 验证
+  - status: 实际选择 maintainer-model-c · high 已更新 Auto 路由 任务处理级别： 常规 依据：AA 数据 · default-standard-task AA 快照：aa-model-menu-fixture-2026-08-22 The task requires Standard handling. AA 启发式路由 · 未经项目 Benchmark 验证
   - menuitem "模型 maintainer-model-c":
     - text: 模型 maintainer-model-c
     - img
