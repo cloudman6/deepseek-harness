@@ -14,19 +14,24 @@ const t: ComponentProps<typeof AutoRouteChangeNodeView>['t'] = (key, params) => 
     : template.replace(/\{(\w+)\}/g, (match, name: string) => name in params ? String(params[name]) : match)
 }
 
-function node(previous: { model: string; reasoningEffort: string }, current: { model: string; reasoningEffort: string }) {
+function node(
+  previous: { model: string; reasoningEffort?: string; handlingLevel?: 'light' | 'standard' | 'deep' },
+  current: { model: string; reasoningEffort?: string; handlingLevel?: 'light' | 'standard' | 'deep' },
+) {
   return {
     data: {
-      previous: { provider: 'deepseek-official', ...previous },
-      current: { provider: 'deepseek-official', ...current },
-      tier: 'fast',
+      previous: { provider: 'deepseek-official', handlingLevel: 'light', routeBasis: 'aa-matched', ...previous },
+      current: { provider: 'deepseek-official', handlingLevel: 'light', routeBasis: 'aa-matched', ...current },
       reasonCode: 'bounded-simple-task',
       reason: 'Matched a bounded low-complexity task signal.',
     },
   } as ChatNode<'auto-route-change'>
 }
 
-function renderRouteChange(previous: { model: string; reasoningEffort: string }, current: { model: string; reasoningEffort: string }) {
+function renderRouteChange(
+  previous: { model: string; reasoningEffort?: string; handlingLevel?: 'light' | 'standard' | 'deep' },
+  current: { model: string; reasoningEffort?: string; handlingLevel?: 'light' | 'standard' | 'deep' },
+) {
   return render(<AutoRouteChangeNodeView {...({ node: node(previous, current), t } as ComponentProps<typeof AutoRouteChangeNodeView>)} />)
 }
 
@@ -55,5 +60,25 @@ describe('Auto route-change chat view', () => {
     expect(screen.getByText('推理等级：off', { exact: true })).toBeTruthy()
     expect(view.container.querySelector(`.${css.changedValue}`)?.textContent).toBe('deepseek-v4-pro')
     expect(view.container.textContent).not.toContain('off →')
+  })
+
+  it('shows a localized level-only change and its AA basis', () => {
+    const view = renderRouteChange(
+      { model: 'deepseek-v4-flash', reasoningEffort: 'high', handlingLevel: 'standard' },
+      { model: 'deepseek-v4-flash', reasoningEffort: 'high', handlingLevel: 'deep' },
+    )
+
+    expect(screen.getByText('任务处理级别：常规 →', { exact: true })).toBeTruthy()
+    expect(view.container.querySelector(`.${css.changedValue}`)?.textContent).toBe('深度')
+    expect(screen.getByText(/依据：AA 数据.*bounded-simple-task/i)).toBeTruthy()
+  })
+
+  it('omits reasoning effort when the route has no effort dimension', () => {
+    renderRouteChange(
+      { model: 'model-a' },
+      { model: 'model-b' },
+    )
+
+    expect(screen.queryByText(/推理等级：/)).toBeNull()
   })
 })

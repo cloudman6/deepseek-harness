@@ -1,17 +1,18 @@
 import type { SessionEvent } from '@deepseek-ai/dsh-session/types'
 import type { ConversationNodeDefinition } from '@deepseek-ai/dsh-client-runtime/client'
 
-/** One exact Auto route emitted by the Phase 0P host plugin. */
+/** One exact Auto route emitted by the external Host plugin. */
 interface AutoRoute {
   readonly provider: string
   readonly model: string
-  readonly reasoningEffort: string
+  readonly reasoningEffort?: string
+  readonly handlingLevel: 'light' | 'standard' | 'deep'
+  readonly routeBasis: 'aa-matched' | 'configured-deep-fallback'
 }
 
-/** Durable selection facts emitted by the external Phase 0P host plugin. */
+/** Durable selection facts emitted by the external Host plugin. */
 interface AutoRouteDecision {
   readonly current: AutoRoute
-  readonly tier: 'fast' | 'standard' | 'strong' | 'fallback'
   readonly reasonCode: string
   readonly reason: string
 }
@@ -23,7 +24,7 @@ export interface AutoRouteChangeNode extends AutoRouteDecision {
 
 declare module '@deepseek-ai/dsh-client-ui-conversation/client' {
   interface ChatNodeDataMap {
-    /** A persisted Phase 0P Auto route transition. */
+    /** A persisted Auto route transition. */
     'auto-route-change': AutoRouteChangeNode
   }
 }
@@ -41,6 +42,13 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined
 }
 
+function legacyHandlingLevel(tier: unknown): AutoRoute['handlingLevel'] | undefined {
+  if (tier === 'fast') return 'light'
+  if (tier === 'standard') return 'standard'
+  if (tier === 'strong' || tier === 'fallback') return 'deep'
+  return undefined
+}
+
 /**
  * Read the externally owned selection event without assigning it a DSH core
  * Session type. The host namespace parser remains the durable authority.
@@ -49,20 +57,28 @@ function selection(event: SessionEvent): AutoRouteDecision | undefined {
   const wire = event as unknown as { readonly type?: unknown; readonly data?: unknown }
   if (wire.type !== SELECTION_EVENT) return undefined
   const data = record(wire.data)
-  if (data === undefined
+  if (data === undefined) return undefined
+  const legacyLevel = data.schemaVersion === 1 ? legacyHandlingLevel(data.tier) : undefined
+  const handlingLevel = data.schemaVersion === 2 ? data.handlingLevel : legacyLevel
+  const routeBasis = data.schemaVersion === 2
+    ? data.routeBasis
+    : data.tier === 'fallback' ? 'configured-deep-fallback' : 'aa-matched'
+  if ((data.schemaVersion !== 1 && data.schemaVersion !== 2)
     || typeof data.provider !== 'string'
     || typeof data.model !== 'string'
-    || typeof data.reasoningEffort !== 'string'
-    || !['fast', 'standard', 'strong', 'fallback'].includes(data.tier as string)
+    || (data.reasoningEffort !== undefined && typeof data.reasoningEffort !== 'string')
+    || !['light', 'standard', 'deep'].includes(handlingLevel as string)
+    || !['aa-matched', 'configured-deep-fallback'].includes(routeBasis as string)
     || typeof data.reasonCode !== 'string'
     || typeof data.reason !== 'string') return undefined
   return {
     current: {
       provider: data.provider,
       model: data.model,
-      reasoningEffort: data.reasoningEffort,
+      ...(data.reasoningEffort === undefined ? {} : { reasoningEffort: data.reasoningEffort }),
+      handlingLevel: handlingLevel as AutoRoute['handlingLevel'],
+      routeBasis: routeBasis as AutoRoute['routeBasis'],
     },
-    tier: data.tier as AutoRouteChangeNode['tier'],
     reasonCode: data.reasonCode,
     reason: data.reason,
   }
@@ -88,8 +104,11 @@ export const autoRouteChangeDefinition: ConversationNodeDefinition<AutoRouteChan
   buildViewNode: (context) => {
     const state = context.state
     if (state === undefined
-      || (state.previous.model === state.current.model
-        && state.previous.reasoningEffort === state.current.reasoningEffort)) return null
+      || (state.previous.provider === state.current.provider
+        && state.previous.model === state.current.model
+        && state.previous.reasoningEffort === state.current.reasoningEffort
+        && state.previous.handlingLevel === state.current.handlingLevel
+        && state.previous.routeBasis === state.current.routeBasis)) return null
     return {
       key: context.key,
       kind: 'auto-route-change',
@@ -101,7 +120,6 @@ export const autoRouteChangeDefinition: ConversationNodeDefinition<AutoRouteChan
       data: {
         previous: state.previous,
         current: state.current,
-        tier: state.tier,
         reasonCode: state.reasonCode,
         reason: state.reason,
       },

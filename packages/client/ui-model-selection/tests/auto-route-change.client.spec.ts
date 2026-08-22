@@ -19,8 +19,12 @@ describe('Auto route-change chat node', () => {
       seq: 24,
       time: 1_700_000_000_000,
       data: {
+        schemaVersion: 2,
         ...current,
-        tier: 'strong',
+        requestedHandlingLevel: 'deep',
+        handlingLevel: 'deep',
+        routeBasis: 'aa-matched',
+        fallback: false,
         reasonCode: 'high-complexity-task',
         reason: 'Matched a high-complexity task signal.',
       },
@@ -47,22 +51,22 @@ describe('Auto route-change chat node', () => {
               provider: 'deepseek-official',
               model: 'deepseek-v4-pro',
               reasoningEffort: 'max',
+              handlingLevel: 'standard',
+              routeBasis: 'aa-matched',
             },
           })
         }
         return undefined
       },
     } as unknown as ConversationContextReader
-    const start = autoRouteChangeDefinition.start
-    if (start === undefined) throw new Error('Auto route-change definition must have a start function')
-    const state = start(
+    if (autoRouteChangeDefinition.start === undefined) throw new Error('Auto route-change definition must have a start function')
+    const state = autoRouteChangeDefinition.start(
       {} as never,
       match,
       reader,
     )
-    const buildViewNode = autoRouteChangeDefinition.buildViewNode
-    if (buildViewNode === undefined) throw new Error('Auto route-change definition must build a chat node')
-    const node = buildViewNode({
+    if (autoRouteChangeDefinition.buildViewNode === undefined) throw new Error('Auto route-change definition must build a chat node')
+    const node = autoRouteChangeDefinition.buildViewNode({
       key: 'auto-route-change:24',
       kind: 'auto-route-change',
       id: '24',
@@ -70,8 +74,50 @@ describe('Auto route-change chat node', () => {
       start: match,
       state,
       current: new Map(),
-    } as never) as ChatConversationViewNode
+    }) as ChatConversationViewNode
 
     expect(node.anchorSeq).toBe(24)
+  })
+
+  it('keeps a notice when only the task-handling level changes', () => {
+    const event = {
+      type: 'dsh-auto-mode/selection',
+      seq: 25,
+      time: 1_700_000_000_001,
+      data: {
+        schemaVersion: 2,
+        ...current,
+        requestedHandlingLevel: 'deep',
+        handlingLevel: 'deep',
+        routeBasis: 'aa-matched',
+        fallback: false,
+        reasonCode: 'high-complexity-task',
+        reason: 'Matched a high-complexity task signal.',
+      },
+    } as unknown as SessionEvent
+    const match = { event, role: 'start', location: { kind: 'unresolved' } } as ConversationMatch
+    const reader = {
+      previous: () => ({
+        state: {
+          current: {
+            ...current,
+            handlingLevel: 'standard',
+            routeBasis: 'aa-matched',
+          },
+        },
+      }),
+    } as unknown as ConversationContextReader
+    const state = autoRouteChangeDefinition.start?.({} as never, match, reader)
+    const node = autoRouteChangeDefinition.buildViewNode?.({
+      key: 'auto-route-change:25',
+      kind: 'auto-route-change',
+      id: '25',
+      matches: [match],
+      start: match,
+      state,
+      current: new Map(),
+    })
+
+    expect(node).not.toBeNull()
   })
 })

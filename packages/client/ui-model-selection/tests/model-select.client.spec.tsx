@@ -220,7 +220,10 @@ describe('ModelSelect reasoning effort', () => {
       decision: {
         turn: 1,
         step: 0,
-        tier: 'fast' as const,
+        requestedHandlingLevel: 'light' as const,
+        handlingLevel: 'light' as const,
+        routeBasis: 'aa-matched' as const,
+        fallback: false,
         provider: 'deepseek-official',
         model: 'deepseek-v4-flash',
         reasoningEffort: 'off',
@@ -247,8 +250,9 @@ describe('ModelSelect reasoning effort', () => {
     expect(screen.getAllByRole('menuitem')[0]?.textContent).toContain('模型')
     expect(screen.getByText('实际选择')).toBeTruthy()
     expect(screen.getByText('DeepSeek-V4-Flash · Off')).toBeTruthy()
-    expect(screen.getByText(/fast.*bounded-simple-task/i)).toBeTruthy()
-    expect(screen.queryByText('已切换模型与推理等级')).toBeNull()
+    expect(screen.getByText('任务处理级别：轻量')).toBeTruthy()
+    expect(screen.getByText(/依据：AA 数据.*bounded-simple-task/i)).toBeTruthy()
+    expect(screen.queryByText('已更新 Auto 路由')).toBeNull()
 
     projection = {
       ...projection,
@@ -256,7 +260,10 @@ describe('ModelSelect reasoning effort', () => {
       decision: {
         turn: 1,
         step: 1,
-        tier: 'strong',
+        requestedHandlingLevel: 'deep',
+        handlingLevel: 'deep',
+        routeBasis: 'aa-matched',
+        fallback: false,
         provider: 'deepseek-official',
         model: 'deepseek-v4-pro',
         reasoningEffort: 'max',
@@ -277,14 +284,17 @@ describe('ModelSelect reasoning effort', () => {
     expect(trigger.getAttribute('aria-label')).toMatch(/Auto.*DeepSeek-V4-Pro.*Max/)
     expect(screen.getAllByText('DeepSeek-V4-Pro')).not.toHaveLength(0)
     expect(screen.getAllByText('Max')).not.toHaveLength(0)
-    expect(screen.getByText(/strong.*high-complexity-task/i)).toBeTruthy()
+    expect(screen.getByText('任务处理级别：')).toBeTruthy()
+    expect([...view.container.querySelectorAll(`.${css.routeRollTrack}`)].map(element => element.textContent))
+      .toContain('轻量深度')
+    expect(screen.getByText(/依据：AA 数据.*high-complexity-task/i)).toBeTruthy()
     await waitFor(() => {
-      expect(screen.getByText('已切换模型与推理等级')).toBeTruthy()
+      expect(screen.getByText('已更新 Auto 路由')).toBeTruthy()
       const rollingValues = [...view.container.querySelectorAll(`.${css.routeRollTrack}`)]
         .map(element => element.textContent)
       expect(rollingValues).toContain('DeepSeek-V4-FlashDeepSeek-V4-Pro')
       expect(rollingValues).toContain('OffMax')
-      expect(view.container.querySelectorAll(`.${css.routeRollTarget}`)).toHaveLength(4)
+      expect(view.container.querySelectorAll(`.${css.routeRollTarget}`)).toHaveLength(5)
       expect(view.container.querySelectorAll(`.${css.autoTriggerChanged}`)).toHaveLength(1)
     })
 
@@ -295,7 +305,10 @@ describe('ModelSelect reasoning effort', () => {
       decision: {
         turn: 1,
         step: 2,
-        tier: 'strong',
+        requestedHandlingLevel: 'deep',
+        handlingLevel: 'deep',
+        routeBasis: 'aa-matched',
+        fallback: false,
         provider: 'deepseek-official',
         model: 'deepseek-v4-pro',
         reasoningEffort: 'high',
@@ -342,12 +355,15 @@ describe('ModelSelect reasoning effort', () => {
       decision: {
         turn: 1,
         step: 0,
-        tier: 'fallback',
+        requestedHandlingLevel: 'deep',
+        handlingLevel: 'deep',
+        routeBasis: 'configured-deep-fallback',
+        fallback: true,
         provider: 'maintainer-provider',
-        model: 'maintainer-strong-model',
+        model: 'maintainer-fallback-model',
         reasoningEffort: 'max',
         reasonCode: 'missing-exact-route',
-        reason: 'The selected tier was unavailable, so Auto used the configured fallback.',
+        reason: 'The selected level was unavailable, so Auto used the configured fallback.',
       },
     }
     render(<ModelSelect
@@ -362,7 +378,55 @@ describe('ModelSelect reasoning effort', () => {
     />)
 
     expect(screen.getByRole('button', {
-      name: /Auto.*maintainer-strong-model.*max/i,
+      name: /Auto.*maintainer-fallback-model.*max/i,
     })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /Auto.*maintainer-fallback-model.*max/i }))
+    expect(screen.getByText(/依据：配置的深度 fallback.*missing-exact-route/i)).toBeTruthy()
+  })
+
+  it('animates and reports a handling-level-only decision change', async () => {
+    const directory = createSnapshotStore<ModelDirectoryState>(state())
+    const previous = {
+      turn: 1,
+      step: 0,
+      requestedHandlingLevel: 'light' as const,
+      handlingLevel: 'light' as const,
+      routeBasis: 'aa-matched' as const,
+      fallback: false,
+      provider: 'deepseek-official',
+      model: 'deepseek-v4-flash',
+      reasoningEffort: 'high',
+      reasonCode: 'bounded-simple-task',
+      reason: 'A bounded task.',
+    }
+    const projection: DshAutoModeProjection = {
+      active: true,
+      evidenceStatus: 'experimental-unadmitted',
+      previousDecision: previous,
+      decision: {
+        ...previous,
+        step: 1,
+        requestedHandlingLevel: 'standard',
+        handlingLevel: 'standard',
+        reasonCode: 'default-standard-task',
+        reason: 'A standard task.',
+      },
+    }
+    const view = render(<ModelSelect
+      locked={false}
+      available
+      directory={directory}
+      load={vi.fn()}
+      select={vi.fn().mockResolvedValue(true)}
+      setAuto={vi.fn().mockResolvedValue(null)}
+      {...runtime(vi.fn(() => projection))}
+      t={t}
+    />)
+
+    fireEvent.click(screen.getByRole('button', { name: /Auto.*DeepSeek-V4-Flash.*High/ }))
+    expect(screen.getByText('任务处理级别：')).toBeTruthy()
+    expect([...view.container.querySelectorAll(`.${css.routeRollTrack}`)].map(element => element.textContent))
+      .toContain('轻量常规')
+    expect(screen.getByText('已更新 Auto 路由')).toBeTruthy()
   })
 })

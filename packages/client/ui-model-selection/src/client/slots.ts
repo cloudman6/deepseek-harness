@@ -26,14 +26,25 @@ export interface ModelSelectInjected {
   setAuto: (active: boolean) => Promise<string | null>
 }
 
+/** Host-owned task-handling levels. They are independent of provider effort names. */
+export type DshAutoModeHandlingLevel = 'light' | 'standard' | 'deep'
+
+/** Evidence basis for the effective route. Fallback remains a Deep decision. */
+export type DshAutoModeRouteBasis = 'aa-matched' | 'configured-deep-fallback'
+
 /** One route decision published by the experimental Auto host plugin. */
 export interface DshAutoModeDecision {
   turn: number
   step: number
-  tier: 'fast' | 'standard' | 'strong' | 'fallback'
+  requestedHandlingLevel: DshAutoModeHandlingLevel
+  handlingLevel: DshAutoModeHandlingLevel
+  routeBasis: DshAutoModeRouteBasis
+  fallback: boolean
   provider: string
   model: string
-  reasoningEffort: string
+  reasoningEffort?: string
+  aaSnapshotId?: string
+  aaRecordId?: string
   reasonCode: string
   reason: string
 }
@@ -49,7 +60,7 @@ export interface DshAutoModeProjection {
 
 declare module '@deepseek-ai/dsh-session-projection/types' {
   interface SessionProjectionMap {
-    /** Maintainer-only Phase 0P Auto state and its latest effective decision. */
+    /** Maintainer-only AA-informed Auto state and its latest effective decision. */
     dshAutoMode: DshAutoModeProjection
   }
 }

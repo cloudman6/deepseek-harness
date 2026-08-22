@@ -1,8 +1,0 @@
-- menu "模型与推理等级":
-  - menuitemradio "Auto 根据任务自动选择模型和推理等级" [checked]:
-    - text: Auto 根据任务自动选择模型和推理等级
-    - img
-  - status: 实际选择 maintainer-strong-model · high 已切换模型与推理等级 strong · high-complexity-task Matched a high-complexity or high-consequence task signal. 实验模式 · 未经质量准入
-  - menuitem "模型 maintainer-strong-model":
-    - text: 模型 maintainer-strong-model
-    - img

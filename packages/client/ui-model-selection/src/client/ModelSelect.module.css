@@ -332,6 +332,12 @@
   font-weight: 600;
 }
 
+.autoHandlingLevel {
+  color: var(--dsw-alias-label-secondary);
+  font-weight: 600;
+  --dsh-route-roll-height: 16px;
+}
+
 .autoEvidence {
   color: var(--dsw-alias-state-warn-label);
 }

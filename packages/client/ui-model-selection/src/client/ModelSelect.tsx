@@ -23,7 +23,9 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { InjectFace, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
-import type { ModelSelectInjected } from './slots.ts'
+import type {
+  DshAutoModeHandlingLevel, DshAutoModeRouteBasis, ModelSelectInjected,
+} from './slots.ts'
 import css from './ModelSelect.module.css'
 
 /** Full model-seat props: runtime owner/projection shares, injected verbs, and locale. */
@@ -46,7 +48,19 @@ interface EffortChoice {
 interface AutoRoute {
   provider: string
   model: string
-  reasoningEffort: string
+  reasoningEffort?: string
+  handlingLevel: DshAutoModeHandlingLevel
+  routeBasis: DshAutoModeRouteBasis
+}
+
+function handlingLevelLabel(level: DshAutoModeHandlingLevel, t: ModelSelectProps['t']): string {
+  if (level === 'light') return t('level.light')
+  if (level === 'standard') return t('level.standard')
+  return t('level.deep')
+}
+
+function routeBasisLabel(basis: DshAutoModeRouteBasis, t: ModelSelectProps['t']): string {
+  return basis === 'aa-matched' ? t('basis.aaMatched') : t('basis.configuredDeepFallback')
 }
 
 /** Render the current route value, rolling from the preceding value when it changed. */
@@ -107,7 +121,9 @@ export function ModelSelect(
     ? {
       provider: auto.decision.provider,
       model: auto.decision.model,
-      reasoningEffort: auto.decision.reasoningEffort,
+      ...(auto.decision.reasoningEffort === undefined
+        ? {}
+        : { reasoningEffort: auto.decision.reasoningEffort }),
     }
     : state.current
   const selectedIndex = effectiveSelection === null
@@ -115,12 +131,18 @@ export function ModelSelect(
     : choices.findIndex(c => c.selection.provider === effectiveSelection.provider && c.selection.model === effectiveSelection.model)
   const currentChoice = choices[selectedIndex]
   const reasoning = currentChoice?.model.reasoning
-  const effectiveEffort = effectiveSelection?.reasoningEffort ?? reasoning?.defaultEffort
-  const effortLabel = reasoning === undefined
-    ? auto?.active ? effectiveEffort : undefined
-    : effectiveEffort === undefined
-      ? t('effort.providerDefault')
-      : reasoning.efforts.find(level => level.id === effectiveEffort)?.name ?? effectiveEffort
+  const effectiveEffort = auto?.active
+    ? auto.decision?.reasoningEffort
+    : effectiveSelection?.reasoningEffort ?? reasoning?.defaultEffort
+  const effortLabel = auto?.active
+    ? effectiveEffort === undefined
+      ? undefined
+      : reasoning?.efforts.find(level => level.id === effectiveEffort)?.name ?? effectiveEffort
+    : reasoning === undefined
+      ? undefined
+      : effectiveEffort === undefined
+        ? t('effort.providerDefault')
+        : reasoning.efforts.find(level => level.id === effectiveEffort)?.name ?? effectiveEffort
   const effortChoices = useMemo<readonly EffortChoice[]>(() => reasoning === undefined
     ? []
     : [
@@ -140,29 +162,44 @@ export function ModelSelect(
     ? {
       provider: auto.decision.provider,
       model: auto.decision.model,
-      reasoningEffort: auto.decision.reasoningEffort,
+      ...(auto.decision.reasoningEffort === undefined
+        ? {}
+        : { reasoningEffort: auto.decision.reasoningEffort }),
+      handlingLevel: auto.decision.handlingLevel,
+      routeBasis: auto.decision.routeBasis,
     }
     : null, [
     auto?.active,
     auto?.decision?.provider,
     auto?.decision?.model,
     auto?.decision?.reasoningEffort,
+    auto?.decision?.handlingLevel,
+    auto?.decision?.routeBasis,
   ])
   const projectedPreviousAutoRoute = auto?.active && auto.previousDecision !== null && auto.previousDecision !== undefined
     ? {
       provider: auto.previousDecision.provider,
       model: auto.previousDecision.model,
-      reasoningEffort: auto.previousDecision.reasoningEffort,
+      ...(auto.previousDecision.reasoningEffort === undefined
+        ? {}
+        : { reasoningEffort: auto.previousDecision.reasoningEffort }),
+      handlingLevel: auto.previousDecision.handlingLevel,
+      routeBasis: auto.previousDecision.routeBasis,
     }
     : null
   const autoRouteChanged = autoRoute !== null && projectedPreviousAutoRoute !== null
-    && (autoRoute.model !== projectedPreviousAutoRoute.model
-      || autoRoute.reasoningEffort !== projectedPreviousAutoRoute.reasoningEffort)
+    && (autoRoute.provider !== projectedPreviousAutoRoute.provider
+      || autoRoute.model !== projectedPreviousAutoRoute.model
+      || autoRoute.reasoningEffort !== projectedPreviousAutoRoute.reasoningEffort
+      || autoRoute.handlingLevel !== projectedPreviousAutoRoute.handlingLevel
+      || autoRoute.routeBasis !== projectedPreviousAutoRoute.routeBasis)
   const autoRouteSwitched = autoRouteChanged
   const previousAutoRoute = autoRouteSwitched ? projectedPreviousAutoRoute : null
-  const autoRouteTransitionKey = autoRouteSwitched && autoRoute !== null && previousAutoRoute !== null
-    ? `${previousAutoRoute.provider}/${previousAutoRoute.model}/${previousAutoRoute.reasoningEffort}`
-      + `->${autoRoute.provider}/${autoRoute.model}/${autoRoute.reasoningEffort}`
+  const autoRouteTransitionKey = autoRouteSwitched && previousAutoRoute !== null
+    ? `${previousAutoRoute.provider}/${previousAutoRoute.model}/${previousAutoRoute.reasoningEffort ?? ''}`
+      + `/${previousAutoRoute.handlingLevel}/${previousAutoRoute.routeBasis}`
+      + `->${autoRoute.provider}/${autoRoute.model}/${autoRoute.reasoningEffort ?? ''}`
+      + `/${autoRoute.handlingLevel}/${autoRoute.routeBasis}`
     : 'steady'
 
   const reload = (): void => {
@@ -310,11 +347,21 @@ export function ModelSelect(
     : previousAutoRoute.reasoningEffort
   const previousEffortLabel = previousAutoRoute === null
     ? undefined
-    : previousChoice?.model.reasoning?.efforts.find(level => level.id === previousEffort)?.name ?? previousEffort
+    : previousEffort === undefined
+      ? undefined
+      : previousChoice?.model.reasoning?.efforts.find(level => level.id === previousEffort)?.name ?? previousEffort
+  const handlingLevel = auto?.decision === null || auto?.decision === undefined
+    ? undefined
+    : handlingLevelLabel(auto.decision.handlingLevel, t)
+  const previousHandlingLevel = previousAutoRoute === null
+    ? undefined
+    : handlingLevelLabel(previousAutoRoute.handlingLevel, t)
   const autoPrefix = auto?.active ? `${t('menu.auto')} · ` : ''
   const triggerLabel = effortLabel === undefined ? `${autoPrefix}${modelLabel}` : `${autoPrefix}${modelLabel} · ${effortLabel}`
-  const triggerAria = auto?.active && auto.decision !== null && effortLabel !== undefined
-    ? t('trigger.autoAria', { model: modelLabel, effort: effortLabel })
+  const triggerAria = auto?.active && auto.decision !== null
+    ? effortLabel === undefined
+      ? t('trigger.autoAriaModel', { model: modelLabel })
+      : t('trigger.autoAria', { model: modelLabel, effort: effortLabel })
     : currentChoice === undefined
       ? t('trigger.selectAria')
       : effortLabel === undefined
@@ -400,18 +447,29 @@ export function ModelSelect(
                             <span className={css.autoRouteLabel}>{t('menu.autoEffective')}</span>
                             <span
                               className={css.autoRouteValue}
-                              title={`${auto.decision.provider} / ${auto.decision.model} / ${auto.decision.reasoningEffort}`}
+                              title={[auto.decision.provider, auto.decision.model, auto.decision.reasoningEffort]
+                                .filter(value => value !== undefined).join(' / ')}
                             >
-                              <RouteValueRoll current={modelLabel} previous={previousModelLabel} /> · <RouteValueRoll
-                                current={effortLabel ?? auto.decision.reasoningEffort}
+                              <RouteValueRoll current={modelLabel} previous={previousModelLabel} />
+                              {effortLabel === undefined ? null : <> · <RouteValueRoll
+                                current={effortLabel}
                                 previous={previousEffortLabel}
-                              />
+                              /></>}
                             </span>
                             {autoRouteSwitched && (
                               <span className={css.autoSwitchNotice}>{t('menu.autoSwitched')}</span>
                             )}
                           </span>
-                          <span className={css.autoDecision}>{auto.decision.tier} · {auto.decision.reasonCode}</span>
+                          {handlingLevel !== undefined && (
+                            <span className={css.autoHandlingLevel}>
+                              {t('menu.autoHandlingLevel')}
+                              <RouteValueRoll current={handlingLevel} previous={previousHandlingLevel} />
+                            </span>
+                          )}
+                          <span className={css.autoDecision}>{t('menu.autoBasis', {
+                            basis: routeBasisLabel(auto.decision.routeBasis, t),
+                            code: auto.decision.reasonCode,
+                          })}</span>
                           <span>{auto.decision.reason}</span>
                         </>
                       )}
