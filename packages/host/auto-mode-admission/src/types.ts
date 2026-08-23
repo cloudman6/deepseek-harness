@@ -42,6 +42,7 @@ export interface RouteAdmissionBand {
 export interface RouteAdmissionCounts {
   readonly hostRoutes: number
   readonly bindings: number
+  readonly callable: number
   readonly recommended: number
   readonly admitted: number
   readonly exclusions: number
@@ -85,8 +86,8 @@ export interface RouteAdmissionExclusion {
 /** Bounded browser projection compiled by the external Auto plugin. */
 export interface RouteAdmissionProjection {
   readonly schemaVersion: 1
-  readonly projectionVersion: 'route-admission-projection/v1'
-  readonly policyVersion: 'route-admission-policy/v1'
+  readonly projectionVersion: 'route-admission-projection/v2'
+  readonly policyVersion: 'route-admission-policy/v2'
   readonly mode: RouteAdmissionMode
   readonly evidencePackId: string
   readonly evidencePackManifestVersion: string
@@ -99,6 +100,7 @@ export interface RouteAdmissionProjection {
   readonly priceNormalizationVersion: string
   readonly latencyField: string
   readonly bandPolicy: Readonly<Record<RouteAdmissionHandlingLevel, RouteAdmissionBand>>
+  readonly callableEvidenceRouteKeyIds: readonly string[]
   readonly recommendedEvidenceRouteKeyIds: readonly string[]
   readonly admittedEvidenceRouteKeyIds: readonly string[]
   readonly configuredCustomEvidenceRouteKeyIds: readonly string[]

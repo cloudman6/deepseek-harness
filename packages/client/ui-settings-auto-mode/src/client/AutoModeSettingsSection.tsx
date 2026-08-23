@@ -161,7 +161,7 @@ export function AutoModeSettingsSection({ view, setMode, setRoute, t }: AutoMode
       {state.status === 'save-error' ? <p role="alert" className={css.failureText}>{t('saveError')}</p> : null}
       {changed ? <div className={css.changeNotice}><strong>{t('recommendedChanged')}</strong><span>{t('added')} {recommendedChanges.addedEvidenceRouteKeyIds.length} · {t('removed')} {recommendedChanges.removedEvidenceRouteKeyIds.length}</span></div> : null}
       <div className={css.summary} aria-label={t('coverage')}>
-        <span><strong>{p.counts.admitted}</strong> {t('routes')}</span><span><strong>{p.counts.bindings}</strong> {t('bindings')}</span><span><strong>{p.counts.exclusions}</strong> {t('exclusions')}</span>
+        <span><strong>{p.counts.admitted}</strong> {t('admittedRoutes')}</span><span><strong>{p.counts.callable}</strong> {t('callableRoutes')}</span><span><strong>{p.counts.bindings}</strong> {t('bindings')}</span><span><strong>{p.counts.exclusions}</strong> {t('exclusions')}</span>
       </div>
       {p.unresolvedCustomEvidenceRouteKeyIds.length > 0 ? (
         <div className={css.unresolved} role="status">

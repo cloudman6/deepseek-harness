@@ -77,22 +77,25 @@ function differs(actual: unknown, expected: unknown): boolean {
 
 function assertProjection(value: RouteAdmissionProjection, settings?: RouteAdmissionSettings): void {
   if (differs(value.schemaVersion, 1)
-    || differs(value.projectionVersion, 'route-admission-projection/v1')
-    || differs(value.policyVersion, 'route-admission-policy/v1')
+    || differs(value.projectionVersion, 'route-admission-projection/v2')
+    || differs(value.policyVersion, 'route-admission-policy/v2')
     || !SET_ID.test(value.recommendedSetId)
     || !SET_ID.test(value.admittedSetId)
     || value.rows.length > MAX_PROJECTION_ITEMS
     || value.exclusions.length > MAX_PROJECTION_ITEMS) {
     throw new TypeError('Auto admission provider returned an invalid projection')
   }
+  const callableIds = exactIds(value.callableEvidenceRouteKeyIds, 'callable projection keys')
   const recommendedIds = exactIds(value.recommendedEvidenceRouteKeyIds, 'recommended projection keys')
   const admittedIds = exactIds(value.admittedEvidenceRouteKeyIds, 'admitted projection keys')
   const configuredIds = exactIds(value.configuredCustomEvidenceRouteKeyIds, 'configured Custom projection keys')
   const unresolvedIds = exactIds(value.unresolvedCustomEvidenceRouteKeyIds, 'unresolved Custom projection keys')
   const rowIds = exactIds(value.rows.map(row => row.evidenceRouteKeyId), 'projection row keys')
   const rowIdSet = new Set(rowIds)
-  if (recommendedIds.some(key => !rowIdSet.has(key))
-    || admittedIds.some(key => !recommendedIds.includes(key))
+  const callableIdSet = new Set(callableIds)
+  if (callableIds.some(key => !rowIdSet.has(key))
+    || recommendedIds.some(key => !callableIdSet.has(key))
+    || admittedIds.some(key => !callableIdSet.has(key))
     || unresolvedIds.some(key => !configuredIds.includes(key))
     || (settings !== undefined && (value.mode !== settings.mode
       || !sameIds(configuredIds, settings.customEvidenceRouteKeyIds)))) {

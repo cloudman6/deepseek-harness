@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/feature/2026-08-23-auto-route-admission-settings.md
-2026-08-23-auto-route-admission-settings.md: 6ad5e47270cee78aafaa9b2cb67bf55b032899f0
-2026-08-23-auto-route-admission-settings.zh.md: 42d5b3f9718d29833d2e969c569fff47e6f843f0
+2026-08-23-auto-route-admission-settings.md: a56c17fc3f4a09255506d8c37eb24892bfbf0a1b
+2026-08-23-auto-route-admission-settings.zh.md: 05ea1603ac1781b0769a3eb2cf554b9fc820333d

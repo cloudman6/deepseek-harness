@@ -12,18 +12,22 @@ const keyB = `evidence-route-key:v1:${'b'.repeat(64)}`
 const t = ((key: AutoModeLocaleKey): string => en[key]) as AutoModeSettingsProps['t']
 const unusedHook = (() => { throw new Error('unused by Auto Mode Settings tests') }) as never
 
-function available(mode: 'recommended' | 'custom' = 'recommended', admitted = true): RouteAdmissionView {
+function available(
+  mode: 'recommended' | 'custom' = 'recommended',
+  customEvidenceRouteKeyIds: readonly string[] = mode === 'custom' ? [keyA] : [],
+): RouteAdmissionView {
+  const admittedEvidenceRouteKeyIds = mode === 'recommended' ? [keyA] : [...customEvidenceRouteKeyIds]
   return {
     available: true,
     writable: true,
-    settings: { mode, customEvidenceRouteKeyIds: mode === 'custom' ? [keyA] : [] },
+    settings: { mode, customEvidenceRouteKeyIds: [...customEvidenceRouteKeyIds] },
     recommendedChanges: {
       addedEvidenceRouteKeyIds: [keyA],
       removedEvidenceRouteKeyIds: [],
       toSetId: `route-admission-set:v1:${'1'.repeat(64)}`,
     },
     projection: {
-      schemaVersion: 1, projectionVersion: 'route-admission-projection/v1', policyVersion: 'route-admission-policy/v1', mode,
+      schemaVersion: 1, projectionVersion: 'route-admission-projection/v2', policyVersion: 'route-admission-policy/v2', mode,
       evidencePackId: 'pack-private-2026-08-23', evidencePackManifestVersion: 'v1', aaSnapshotId: 'snapshot-42', bindingRegistryVersion: 'bindings-v2', routePolicyVersion: 'aa-route-policy/v2',
       capabilityField: 'intelligence', capabilityMethodologyVersion: 'v4.1.1', priceField: 'normalized-price', priceNormalizationVersion: 'v1', latencyField: 'ttfat',
       bandPolicy: {
@@ -31,14 +35,18 @@ function available(mode: 'recommended' | 'custom' = 'recommended', admitted = tr
         standard: { minimumInclusive: 35, maximumExclusive: 50 },
         deep: { minimumInclusive: 50, maximumExclusive: null },
       },
-      recommendedEvidenceRouteKeyIds: [keyA], admittedEvidenceRouteKeyIds: admitted ? [keyA] : [], configuredCustomEvidenceRouteKeyIds: mode === 'custom' ? [keyA] : [], unresolvedCustomEvidenceRouteKeyIds: [],
+      callableEvidenceRouteKeyIds: [keyA, keyB],
+      recommendedEvidenceRouteKeyIds: [keyA],
+      admittedEvidenceRouteKeyIds,
+      configuredCustomEvidenceRouteKeyIds: [...customEvidenceRouteKeyIds],
+      unresolvedCustomEvidenceRouteKeyIds: [],
       recommendedSetId: `route-admission-set:v1:${'1'.repeat(64)}`, admittedSetId: `route-admission-set:v1:${'1'.repeat(64)}`, emptyAdmittedLevels: ['light'],
-      counts: { hostRoutes: 2, bindings: 2, recommended: 1, admitted: 1, exclusions: 1 },
+      counts: { hostRoutes: 2, bindings: 2, callable: 2, recommended: 1, admitted: admittedEvidenceRouteKeyIds.length, exclusions: 0 },
       rows: [
-        { evidenceRouteKeyId: keyA, evidenceRouteKey: { schemaVersion: 1, providerNamespace: 'deepseek', modelKey: 'pro', evidenceControls: { effort: 'high' } }, aaRecordId: 'record-a', aaRecordLabel: 'DeepSeek Pro High', evidenceStatus: 'valid', hostStatus: 'callable', admissionStatus: admitted ? 'enabled' : 'disabled', recommended: true, recommendedWinner: true, admittedWinner: admitted, provider: 'deepseek-official', model: 'deepseek-v4-pro', handlingLevel: 'standard', aaCapabilityScore: 43.7, aaPrice: 0.173, aaLatencySeconds: 28.34, matchBasis: ['exact'], limitations: [], reasonCodes: [] },
-        { evidenceRouteKeyId: keyB, evidenceRouteKey: { schemaVersion: 1, providerNamespace: 'deepseek', modelKey: 'flash', evidenceControls: { effort: 'off' } }, aaRecordId: 'record-b', aaRecordLabel: 'DeepSeek Flash Non-reasoning', evidenceStatus: 'valid', hostStatus: 'unavailable', admissionStatus: 'unavailable', recommended: false, recommendedWinner: false, admittedWinner: false, handlingLevel: 'light', aaCapabilityScore: 29.3, aaPrice: 0.087, aaLatencySeconds: null, matchBasis: ['exact'], limitations: [], reasonCodes: ['host-route-unavailable'] },
+        { evidenceRouteKeyId: keyA, evidenceRouteKey: { schemaVersion: 1, providerNamespace: 'deepseek', modelKey: 'pro', evidenceControls: { effort: 'high' } }, aaRecordId: 'record-a', aaRecordLabel: 'DeepSeek Pro High', evidenceStatus: 'valid', hostStatus: 'callable', admissionStatus: admittedEvidenceRouteKeyIds.includes(keyA) ? 'enabled' : 'disabled', recommended: true, recommendedWinner: true, admittedWinner: admittedEvidenceRouteKeyIds.includes(keyA), provider: 'deepseek-official', model: 'deepseek-v4-pro', handlingLevel: 'standard', aaCapabilityScore: 43.7, aaPrice: 0.173, aaLatencySeconds: 28.34, matchBasis: ['exact'], limitations: [], reasonCodes: [] },
+        { evidenceRouteKeyId: keyB, evidenceRouteKey: { schemaVersion: 1, providerNamespace: 'deepseek', modelKey: 'flash', evidenceControls: { effort: 'off' } }, aaRecordId: 'record-b', aaRecordLabel: 'DeepSeek Flash Non-reasoning', evidenceStatus: 'valid', hostStatus: 'callable', admissionStatus: admittedEvidenceRouteKeyIds.includes(keyB) ? 'enabled' : 'disabled', recommended: false, recommendedWinner: false, admittedWinner: admittedEvidenceRouteKeyIds.includes(keyB), provider: 'deepseek-official', model: 'deepseek-v4-flash', handlingLevel: 'light', aaCapabilityScore: 29.3, aaPrice: 0.087, aaLatencySeconds: null, matchBasis: ['exact'], limitations: [], reasonCodes: admittedEvidenceRouteKeyIds.includes(keyB) ? [] : ['user-route-not-admitted'] },
       ],
-      exclusions: [{ source: 'binding', evidenceRouteKeyId: keyB, aaRecordId: 'record-b', reasonCode: 'host-route-unavailable' }],
+      exclusions: [],
     },
   }
 }
@@ -51,7 +59,7 @@ function props(overrides: Partial<AutoModeSettingsProps> = {}): AutoModeSettings
     useWorkspaces: unusedHook,
     view: vi.fn(async () => available()),
     setMode: vi.fn(async (mode: 'recommended' | 'custom') => available(mode)),
-    setRoute: vi.fn(async () => available('custom')),
+    setRoute: vi.fn(async (_key: string, enabled: boolean) => available('custom', enabled ? [keyA, keyB] : [keyA])),
     ...overrides,
   }
 }
@@ -70,22 +78,23 @@ describe('AutoModeSettingsSection', () => {
     expect(screen.getByText('snapshot-42')).toBeTruthy()
     expect(screen.getByText(/This level has no available route/)).toBeTruthy()
     expect(view.container.querySelectorAll('[data-route-key]')).toHaveLength(2)
-    expect(screen.getByText(`${en.exclusionsTitle} (1)`)).toBeTruthy()
+    expect(screen.getByText(`${en.exclusionsTitle} (0)`)).toBeTruthy()
     expect(screen.getByText(en.recommendedChanged)).toBeTruthy()
   })
 
   it('initializes Custom through the Host and toggles only its callable route', async () => {
     const setMode = vi.fn(async () => available('custom'))
-    const setRoute = vi.fn(async () => available('custom', false))
+    const setRoute = vi.fn(async () => available('custom', [keyA, keyB]))
     render(<AutoModeSettingsSection {...props({ setMode, setRoute })} />)
     await screen.findByRole('heading', { name: en.title })
     fireEvent.click(screen.getByRole('radio', { name: new RegExp(en.custom) }))
     await waitFor(() => { expect(setMode).toHaveBeenCalledWith('custom') })
-    const toggle = await screen.findByRole('checkbox', { name: /deepseek-official \/ deepseek-v4-pro/ })
-    expect((toggle as HTMLInputElement).checked).toBe(true)
-    expect(screen.queryByRole('checkbox', { name: /DeepSeek Flash/ })).toBeNull()
-    fireEvent.click(toggle)
-    await waitFor(() => { expect(setRoute).toHaveBeenCalledWith(keyA, false) })
+    const recommendedToggle = await screen.findByRole('checkbox', { name: /deepseek-official \/ deepseek-v4-pro/ })
+    const callableToggle = screen.getByRole('checkbox', { name: /deepseek-official \/ deepseek-v4-flash/ })
+    expect((recommendedToggle as HTMLInputElement).checked).toBe(true)
+    expect((callableToggle as HTMLInputElement).checked).toBe(false)
+    fireEvent.click(callableToggle)
+    await waitFor(() => { expect(setRoute).toHaveBeenCalledWith(keyB, true) })
     expect(screen.getByText(en.saved)).toBeTruthy()
   })
 

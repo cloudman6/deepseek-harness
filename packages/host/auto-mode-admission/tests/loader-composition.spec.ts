@@ -35,7 +35,7 @@ class MemorySettings extends SettingsProvider {
 const key = `evidence-route-key:v1:${'a'.repeat(64)}`
 const setId = `route-admission-set:v1:${'b'.repeat(64)}`
 const projection: RouteAdmissionProjection = {
-  schemaVersion: 1, projectionVersion: 'route-admission-projection/v1', policyVersion: 'route-admission-policy/v1', mode: 'recommended',
+  schemaVersion: 1, projectionVersion: 'route-admission-projection/v2', policyVersion: 'route-admission-policy/v2', mode: 'recommended',
   evidencePackId: 'fixture-pack', evidencePackManifestVersion: 'v1', aaSnapshotId: 'fixture-snapshot', bindingRegistryVersion: 'v1', routePolicyVersion: 'v2',
   capabilityField: 'intelligence', capabilityMethodologyVersion: 'v4.1.1', priceField: 'price', priceNormalizationVersion: 'v1', latencyField: 'latency',
   bandPolicy: {
@@ -43,13 +43,14 @@ const projection: RouteAdmissionProjection = {
     standard: { minimumInclusive: 35, maximumExclusive: 50 },
     deep: { minimumInclusive: 50, maximumExclusive: null },
   },
+  callableEvidenceRouteKeyIds: [key],
   recommendedEvidenceRouteKeyIds: [key],
   admittedEvidenceRouteKeyIds: [key],
   configuredCustomEvidenceRouteKeyIds: [],
   unresolvedCustomEvidenceRouteKeyIds: [],
   recommendedSetId: setId,
   admittedSetId: setId,
-  emptyAdmittedLevels: ['light', 'deep'], counts: { hostRoutes: 1, bindings: 1, recommended: 1, admitted: 1, exclusions: 0 },
+  emptyAdmittedLevels: ['light', 'deep'], counts: { hostRoutes: 1, bindings: 1, callable: 1, recommended: 1, admitted: 1, exclusions: 0 },
   rows: [{ evidenceRouteKeyId: key, evidenceRouteKey: { schemaVersion: 1, providerNamespace: 'fixture', modelKey: 'model', evidenceControls: {} }, aaRecordId: 'record', aaRecordLabel: 'Fixture model', evidenceStatus: 'valid', hostStatus: 'callable', admissionStatus: 'enabled', recommended: true, recommendedWinner: true, admittedWinner: true, provider: 'fixture', model: 'model', handlingLevel: 'standard', aaCapabilityScore: 40, aaPrice: 1, aaLatencySeconds: 2, matchBasis: ['fixture'], limitations: [], reasonCodes: [] }],
   exclusions: [],
 }

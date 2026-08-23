@@ -32,11 +32,17 @@ const keyC = `evidence-route-key:v1:${'c'.repeat(64)}`
 const indexedKey = (index: number) =>
   `evidence-route-key:v1:${index.toString(16).padStart(64, '0')}`
 
-function projection(keys: readonly string[] = [keyA, keyB]): RouteAdmissionProjection {
+function projection({
+  callable = [keyA, keyB],
+  recommended = [keyA],
+}: {
+  callable?: readonly string[]
+  recommended?: readonly string[]
+} = {}): RouteAdmissionProjection {
   return {
     schemaVersion: 1,
-    projectionVersion: 'route-admission-projection/v1',
-    policyVersion: 'route-admission-policy/v1',
+    projectionVersion: 'route-admission-projection/v2',
+    policyVersion: 'route-admission-policy/v2',
     mode: 'recommended',
     evidencePackId: 'pack',
     evidencePackManifestVersion: 'aa-evidence-pack-manifest/v1',
@@ -53,25 +59,33 @@ function projection(keys: readonly string[] = [keyA, keyB]): RouteAdmissionProje
       standard: { minimumInclusive: 35, maximumExclusive: 50 },
       deep: { minimumInclusive: 50, maximumExclusive: null },
     },
-    recommendedEvidenceRouteKeyIds: [...keys],
-    admittedEvidenceRouteKeyIds: [...keys],
+    callableEvidenceRouteKeyIds: [...callable],
+    recommendedEvidenceRouteKeyIds: [...recommended],
+    admittedEvidenceRouteKeyIds: [...recommended],
     configuredCustomEvidenceRouteKeyIds: [],
     unresolvedCustomEvidenceRouteKeyIds: [],
-    recommendedSetId: `route-admission-set:v1:${keys.join('').slice(-64).padStart(64, '0')}`,
-    admittedSetId: `route-admission-set:v1:${keys.join('').slice(-64).padStart(64, '0')}`,
+    recommendedSetId: `route-admission-set:v1:${recommended.join('').slice(-64).padStart(64, '0')}`,
+    admittedSetId: `route-admission-set:v1:${recommended.join('').slice(-64).padStart(64, '0')}`,
     emptyAdmittedLevels: ['light', 'standard', 'deep'],
-    counts: { hostRoutes: keys.length, bindings: keys.length, recommended: keys.length, admitted: keys.length, exclusions: 0 },
-    rows: keys.map((key, index) => ({
+    counts: {
+      hostRoutes: callable.length,
+      bindings: callable.length,
+      callable: callable.length,
+      recommended: recommended.length,
+      admitted: recommended.length,
+      exclusions: 0,
+    },
+    rows: callable.map((key, index) => ({
       evidenceRouteKeyId: key,
       evidenceRouteKey: { schemaVersion: 1, providerNamespace: 'fixture', modelKey: `m${String(index)}`, evidenceControls: {} },
       aaRecordId: `record-${String(index)}`,
       aaRecordLabel: `Record ${String(index)}`,
       evidenceStatus: 'valid',
       hostStatus: 'callable',
-      admissionStatus: 'enabled',
-      recommended: true,
-      recommendedWinner: index === 0,
-      admittedWinner: index === 0,
+      admissionStatus: recommended.includes(key) ? 'enabled' : 'disabled',
+      recommended: recommended.includes(key),
+      recommendedWinner: recommended.includes(key),
+      admittedWinner: recommended.includes(key),
       provider: 'fixture',
       model: `m${String(index)}`,
       handlingLevel: 'standard',
@@ -103,11 +117,12 @@ async function harness(doc: Record<string, unknown> = {}) {
   let current = projection()
   const disposeProvider = service.registerProvider({
     inspect: (settings: RouteAdmissionSettings) => {
+      const callable = new Set(current.callableEvidenceRouteKeyIds)
       const recommended = new Set(current.recommendedEvidenceRouteKeyIds)
       const configured = [...settings.customEvidenceRouteKeyIds]
       const admitted = settings.mode === 'recommended'
         ? [...recommended]
-        : configured.filter(key => recommended.has(key))
+        : configured.filter(key => callable.has(key))
       return Promise.resolve({
         ...current,
         mode: settings.mode,
@@ -115,6 +130,11 @@ async function harness(doc: Record<string, unknown> = {}) {
         unresolvedCustomEvidenceRouteKeyIds: configured.filter(key =>
           !current.rows.some(row => row.evidenceRouteKeyId === key)),
         admittedEvidenceRouteKeyIds: admitted,
+        rows: current.rows.map(row => ({
+          ...row,
+          admissionStatus: admitted.includes(row.evidenceRouteKeyId) ? 'enabled' : 'disabled',
+          admittedWinner: admitted.includes(row.evidenceRouteKeyId),
+        })),
       })
     },
   })
@@ -144,24 +164,29 @@ describe('AutoModeAdmissionService', () => {
       available: true,
       writable: true,
       settings: { mode: 'recommended', customEvidenceRouteKeyIds: [] },
-      projection: { recommendedEvidenceRouteKeyIds: [keyA, keyB] },
+      projection: {
+        callableEvidenceRouteKeyIds: [keyA, keyB],
+        recommendedEvidenceRouteKeyIds: [keyA],
+      },
     })
   })
 
-  it('initializes Custom atomically from the current recommendation and toggles only callable exact rows', async () => {
+  it('initializes Custom from Recommended and can add a callable non-Recommended row', async () => {
     const { service, settings } = await harness()
     const custom = await service.setMode('custom', new AbortController().signal)
     expect(custom).toMatchObject({
       available: true,
-      settings: { mode: 'custom', customEvidenceRouteKeyIds: [keyA, keyB] },
+      settings: { mode: 'custom', customEvidenceRouteKeyIds: [keyA] },
     })
     expect(settings.persisted.at(-1)?.section).toMatchObject({
       mode: 'custom',
-      customEvidenceRouteKeyIds: [keyA, keyB],
+      customEvidenceRouteKeyIds: [keyA],
     })
 
-    const disabled = await service.setRoute(keyB, false, new AbortController().signal)
-    expect(disabled).toMatchObject({ settings: { customEvidenceRouteKeyIds: [keyA] } })
+    const added = await service.setRoute(keyB, true, new AbortController().signal)
+    expect(added).toMatchObject({ settings: { customEvidenceRouteKeyIds: [keyA, keyB] } })
+    const disabled = await service.setRoute(keyA, false, new AbortController().signal)
+    expect(disabled).toMatchObject({ settings: { customEvidenceRouteKeyIds: [keyB] } })
     await expect(service.setRoute(keyC, true, new AbortController().signal)).rejects.toThrow(/current callable exact binding/)
     await service.setMode('recommended', new AbortController().signal)
     await expect(service.setRoute(keyA, false, new AbortController().signal)).rejects.toThrow(/Custom mode/)
@@ -188,10 +213,10 @@ describe('AutoModeAdmissionService', () => {
 
   it('records bounded Recommended changes only when the exact set identity changes', async () => {
     const { ctx, service, setProjection } = await harness()
-    await service.observeRecommended(projection([keyA, keyB]))
-    await service.observeRecommended(projection([keyA, keyB]))
+    await service.observeRecommended(projection())
+    await service.observeRecommended(projection())
     for (let index = 0; index < 10; index += 1) {
-      const next = projection([indexedKey(index)])
+      const next = projection({ callable: [indexedKey(index)], recommended: [indexedKey(index)] })
       setProjection(next)
       await service.observeRecommended(next)
     }
@@ -213,7 +238,7 @@ describe('AutoModeAdmissionService', () => {
     const { service, setProjection, disposeProvider } = await harness({
       'dsh-auto-mode': { mode: 'custom', customEvidenceRouteKeyIds: [keyA, keyC] },
     })
-    setProjection(projection([keyB]))
+    setProjection(projection({ callable: [keyB], recommended: [keyB] }))
     const view = await service.view(new AbortController().signal)
     expect(view).toMatchObject({
       available: true,
