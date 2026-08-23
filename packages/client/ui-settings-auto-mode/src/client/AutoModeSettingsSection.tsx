@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { RouteAdmissionRow, RouteAdmissionView } from '@deepseek-ai/dsh-api-remotes/client'
+import type { RouteAdmissionExclusion, RouteAdmissionRow, RouteAdmissionView } from '@deepseek-ai/dsh-api-remotes/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import type { AutoModeLocaleKey } from './locales.ts'
 import css from './AutoModeSettingsSection.module.css'
@@ -37,6 +37,38 @@ function statusKey(row: RouteAdmissionRow): AutoModeLocaleKey {
   return 'unavailableTag'
 }
 
+function exclusionReasonKey(reasonCode: string): AutoModeLocaleKey | undefined {
+  if (reasonCode === 'aa-local-binding-record-missing') return 'noExactAARecord'
+  if (reasonCode === 'aa-local-binding-record-ambiguous') return 'ambiguousAARecord'
+  if (reasonCode === 'aa-local-binding-model-name-missing') return 'missingModelMetadata'
+  if (reasonCode === 'aa-local-binding-key-ambiguous') return 'ambiguousRouteIdentity'
+  return undefined
+}
+
+function groupExclusions(exclusions: readonly RouteAdmissionExclusion[]) {
+  const groups = new Map<string, {
+    key: string
+    title: string
+    identity?: string
+    items: RouteAdmissionExclusion[]
+  }>()
+  for (const item of exclusions) {
+    const identity = item.provider !== undefined && item.model !== undefined
+      ? `${item.provider} / ${item.model}`
+      : undefined
+    const key = identity ?? item.evidenceRouteKeyId ?? item.aaRecordId ?? item.hostRouteId ?? item.reasonCode
+    const group = groups.get(key) ?? {
+      key,
+      title: item.modelName ?? item.model ?? item.aaRecordId ?? item.evidenceRouteKeyId ?? item.reasonCode,
+      ...(identity === undefined ? {} : { identity }),
+      items: [],
+    }
+    group.items.push(item)
+    groups.set(key, group)
+  }
+  return [...groups.values()]
+}
+
 function RouteCard({ row, custom, writable, pending, onToggle, t }: {
   row: RouteAdmissionRow
   custom: boolean
@@ -71,6 +103,7 @@ function RouteCard({ row, custom, writable, pending, onToggle, t }: {
       <div className={css.tags}>
         {row.recommended ? <span className={css.tag}>{t('recommendedTag')}</span> : null}
         {row.admittedWinner ? <span className={css.winner}>{t('winner')}</span> : null}
+        {row.bindingOrigin === undefined ? null : <span className={css.tag}>{t(row.bindingOrigin === 'pack' ? 'packBindingTag' : 'automaticBindingTag')}</span>}
         <span className={css.tag}>{row.evidenceStatus}</span>
         <span className={css.tag}>{row.hostStatus}</span>
       </div>
@@ -214,7 +247,24 @@ export function AutoModeSettingsSection({ view, setMode, setRoute, t }: AutoMode
       </section>
       <details className={css.exclusions}>
         <summary>{t('exclusionsTitle')} ({p.exclusions.length})</summary>
-        {p.exclusions.length === 0 ? <p>{t('noExclusions')}</p> : <ul>{p.exclusions.map((item, index) => <li key={`${item.source}-${item.evidenceRouteKeyId ?? item.hostRouteId ?? index}`}><code>{item.evidenceRouteKeyId ?? item.hostRouteId ?? item.aaRecordId}</code><span>{item.reasonCode}{item.quarantineReasonCode ? ` · ${item.quarantineReasonCode}` : ''}</span></li>)}</ul>}
+        {p.exclusions.length === 0 ? <p>{t('noExclusions')}</p> : (
+          <ul>{groupExclusions(p.exclusions).map(group => (
+            <li className={css.exclusionGroup} key={group.key}>
+              <h4>{group.title}</h4>
+              {group.identity === undefined ? null : <code>{group.identity}</code>}
+              <ul>{group.items.map((item, index) => {
+                const reasonKey = exclusionReasonKey(item.reasonCode)
+                return (
+                  <li key={`${item.source}-${item.evidenceRouteKeyId ?? item.hostRouteId ?? index}`}>
+                    {item.reasoningEffort === undefined ? null : <span>{t('effort')}: {item.reasoningEffort}</span>}
+                    <span>{reasonKey === undefined ? item.reasonCode : t(reasonKey)}{item.quarantineReasonCode ? ` · ${item.quarantineReasonCode}` : ''}</span>
+                    <code>{item.evidenceRouteKeyId ?? item.hostRouteId ?? item.aaRecordId}</code>
+                  </li>
+                )
+              })}</ul>
+            </li>
+          ))}</ul>
+        )}
       </details>
     </section>
   )

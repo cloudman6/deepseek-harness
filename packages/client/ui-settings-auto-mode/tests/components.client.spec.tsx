@@ -27,8 +27,9 @@ function available(
       toSetId: `route-admission-set:v1:${'1'.repeat(64)}`,
     },
     projection: {
-      schemaVersion: 1, projectionVersion: 'route-admission-projection/v2', policyVersion: 'route-admission-policy/v2', mode,
+      schemaVersion: 1, projectionVersion: 'route-admission-projection/v3', policyVersion: 'route-admission-policy/v2', mode,
       evidencePackId: 'pack-private-2026-08-23', evidencePackManifestVersion: 'v1', aaSnapshotId: 'snapshot-42', bindingRegistryVersion: 'bindings-v2', routePolicyVersion: 'aa-route-policy/v2',
+      localBindingOverlayId: `aa-local-binding-overlay:v1:${'c'.repeat(64)}`, localBindingCompilerVersion: 'aa-local-binding-compiler/v1',
       capabilityField: 'intelligence', capabilityMethodologyVersion: 'v4.1.1', priceField: 'normalized-price', priceNormalizationVersion: 'v1', latencyField: 'ttfat',
       bandPolicy: {
         light: { minimumInclusive: null, maximumExclusive: 35 },
@@ -41,10 +42,13 @@ function available(
       configuredCustomEvidenceRouteKeyIds: [...customEvidenceRouteKeyIds],
       unresolvedCustomEvidenceRouteKeyIds: [],
       recommendedSetId: `route-admission-set:v1:${'1'.repeat(64)}`, admittedSetId: `route-admission-set:v1:${'1'.repeat(64)}`, emptyAdmittedLevels: ['light'],
-      counts: { hostRoutes: 2, bindings: 2, callable: 2, recommended: 1, admitted: admittedEvidenceRouteKeyIds.length, exclusions: 0 },
+      counts: {
+        hostRoutes: 2, bindings: 2, packBindings: 1, automaticBindings: 1,
+        callable: 2, recommended: 1, admitted: admittedEvidenceRouteKeyIds.length, exclusions: 0,
+      },
       rows: [
-        { evidenceRouteKeyId: keyA, evidenceRouteKey: { schemaVersion: 1, providerNamespace: 'deepseek', modelKey: 'pro', evidenceControls: { effort: 'high' } }, aaRecordId: 'record-a', aaRecordLabel: 'DeepSeek Pro High', evidenceStatus: 'valid', hostStatus: 'callable', admissionStatus: admittedEvidenceRouteKeyIds.includes(keyA) ? 'enabled' : 'disabled', recommended: true, recommendedWinner: true, admittedWinner: admittedEvidenceRouteKeyIds.includes(keyA), provider: 'deepseek-official', model: 'deepseek-v4-pro', handlingLevel: 'standard', aaCapabilityScore: 43.7, aaPrice: 0.173, aaLatencySeconds: 28.34, matchBasis: ['exact'], limitations: [], reasonCodes: [] },
-        { evidenceRouteKeyId: keyB, evidenceRouteKey: { schemaVersion: 1, providerNamespace: 'deepseek', modelKey: 'flash', evidenceControls: { effort: 'off' } }, aaRecordId: 'record-b', aaRecordLabel: 'DeepSeek Flash Non-reasoning', evidenceStatus: 'valid', hostStatus: 'callable', admissionStatus: admittedEvidenceRouteKeyIds.includes(keyB) ? 'enabled' : 'disabled', recommended: false, recommendedWinner: false, admittedWinner: admittedEvidenceRouteKeyIds.includes(keyB), provider: 'deepseek-official', model: 'deepseek-v4-flash', handlingLevel: 'light', aaCapabilityScore: 29.3, aaPrice: 0.087, aaLatencySeconds: null, matchBasis: ['exact'], limitations: [], reasonCodes: admittedEvidenceRouteKeyIds.includes(keyB) ? [] : ['user-route-not-admitted'] },
+        { evidenceRouteKeyId: keyA, evidenceRouteKey: { schemaVersion: 1, providerNamespace: 'deepseek', modelKey: 'pro', evidenceControls: { effort: 'high' } }, aaRecordId: 'record-a', aaRecordLabel: 'DeepSeek Pro High', evidenceStatus: 'valid', hostStatus: 'callable', admissionStatus: admittedEvidenceRouteKeyIds.includes(keyA) ? 'enabled' : 'disabled', recommended: true, recommendedWinner: true, admittedWinner: admittedEvidenceRouteKeyIds.includes(keyA), bindingOrigin: 'pack', provider: 'deepseek-official', model: 'deepseek-v4-pro', modelName: 'DeepSeek V4 Pro', reasoningEffort: 'high', handlingLevel: 'standard', aaCapabilityScore: 43.7, aaPrice: 0.173, aaLatencySeconds: 28.34, matchBasis: ['exact'], limitations: [], reasonCodes: [] },
+        { evidenceRouteKeyId: keyB, evidenceRouteKey: { schemaVersion: 1, providerNamespace: 'deepseek', modelKey: 'flash', evidenceControls: { effort: 'off' } }, aaRecordId: 'record-b', aaRecordLabel: 'DeepSeek Flash Non-reasoning', evidenceStatus: 'valid', hostStatus: 'callable', admissionStatus: admittedEvidenceRouteKeyIds.includes(keyB) ? 'enabled' : 'disabled', recommended: false, recommendedWinner: false, admittedWinner: admittedEvidenceRouteKeyIds.includes(keyB), bindingOrigin: 'local-automatic', provider: 'deepseek-official', model: 'deepseek-v4-flash', modelName: 'DeepSeek V4 Flash', reasoningEffort: 'off', handlingLevel: 'light', aaCapabilityScore: 29.3, aaPrice: 0.087, aaLatencySeconds: null, matchBasis: ['exact'], limitations: [], reasonCodes: admittedEvidenceRouteKeyIds.includes(keyB) ? [] : ['user-route-not-admitted'] },
       ],
       exclusions: [],
     },
@@ -80,6 +84,49 @@ describe('AutoModeSettingsSection', () => {
     expect(view.container.querySelectorAll('[data-route-key]')).toHaveLength(2)
     expect(screen.getByText(`${en.exclusionsTitle} (0)`)).toBeTruthy()
     expect(screen.getByText(en.recommendedChanged)).toBeTruthy()
+  })
+
+  it('groups exclusions by readable Host identity and localizes automatic-binding failures', async () => {
+    const base = available()
+    if (!base.available) throw new Error('fixture must be available')
+    const exclusions = [
+      {
+        source: 'host-route',
+        hostRouteId: `host-route:v1:${'1'.repeat(64)}`,
+        provider: 'qwen-token-plan-cn',
+        model: 'qwen3.7-plus',
+        modelName: 'Qwen3.7 Plus',
+        reasoningEffort: 'low',
+        reasonCode: 'aa-local-binding-record-missing',
+      },
+      {
+        source: 'host-route',
+        hostRouteId: `host-route:v1:${'2'.repeat(64)}`,
+        provider: 'qwen-token-plan-cn',
+        model: 'qwen3.7-plus',
+        modelName: 'Qwen3.7 Plus',
+        reasoningEffort: 'high',
+        reasonCode: 'aa-local-binding-record-ambiguous',
+      },
+    ] as const
+    const view: RouteAdmissionView = {
+      ...base,
+      projection: {
+        ...base.projection,
+        counts: { ...base.projection.counts, exclusions: exclusions.length },
+        exclusions,
+      },
+    }
+    render(<AutoModeSettingsSection {...props({ view: async () => view })} />)
+    await screen.findByRole('heading', { name: en.title })
+    fireEvent.click(screen.getByText(`${en.exclusionsTitle} (2)`))
+
+    expect(screen.getByRole('heading', { name: 'Qwen3.7 Plus' })).toBeTruthy()
+    expect(screen.getByText('qwen-token-plan-cn / qwen3.7-plus')).toBeTruthy()
+    expect(screen.getByText(`${en.effort}: low`)).toBeTruthy()
+    expect(screen.getByText(en.noExactAARecord)).toBeTruthy()
+    expect(screen.getByText(en.ambiguousAARecord)).toBeTruthy()
+    expect(screen.getAllByText(/host-route:v1:/)).toHaveLength(2)
   })
 
   it('initializes Custom through the Host and toggles only its callable route', async () => {

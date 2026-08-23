@@ -220,7 +220,7 @@ async observeRecommended(projection: RouteAdmissionProjection): Promise<void>
 @Remote('setRoute') async setRoute(evidenceRouteKeyId: string, enabled: boolean, signal: AbortSignal): Promise<RouteAdmissionView>
 ```
 
-Source: [`packages/host/auto-mode-admission/src/index.ts:129`](../../packages/host/auto-mode-admission/src/index.ts)
+Source: [`packages/host/auto-mode-admission/src/index.ts:146`](../../packages/host/auto-mode-admission/src/index.ts)
 
 <a id="ctxsettings--settingsprovider-abstract-seam"></a>
 

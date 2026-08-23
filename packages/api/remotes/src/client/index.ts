@@ -11,7 +11,7 @@ import type { TypertClientRemote } from '@deepseek-ai/dsh-typert-protocol'
 
 export type { TypertClientRemote as ClientRemote } from '@deepseek-ai/dsh-typert-protocol'
 export type {
-  RouteAdmissionProjection, RouteAdmissionRow, RouteAdmissionView,
+  RouteAdmissionExclusion, RouteAdmissionProjection, RouteAdmissionRow, RouteAdmissionView,
 } from '@deepseek-ai/dsh-host-auto-mode-admission/types'
 export type { PluginInventorySnapshot } from '@deepseek-ai/dsh-host-plugin-inventory/types'
 export type {} from '@deepseek-ai/dsh-commands/remote'

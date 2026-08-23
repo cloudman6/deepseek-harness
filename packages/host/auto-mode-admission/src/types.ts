@@ -42,6 +42,8 @@ export interface RouteAdmissionBand {
 export interface RouteAdmissionCounts {
   readonly hostRoutes: number
   readonly bindings: number
+  readonly packBindings?: number
+  readonly automaticBindings?: number
   readonly callable: number
   readonly recommended: number
   readonly admitted: number
@@ -60,9 +62,12 @@ export interface RouteAdmissionRow {
   readonly recommended: boolean
   readonly recommendedWinner: boolean
   readonly admittedWinner: boolean
+  readonly bindingOrigin?: 'pack' | 'local-automatic'
   readonly routeId?: string
   readonly provider?: string
   readonly model?: string
+  readonly modelName?: string
+  readonly reasoningEffort?: string
   readonly effectiveConfigFingerprint?: string
   readonly handlingLevel?: RouteAdmissionHandlingLevel
   readonly aaCapabilityScore?: number
@@ -79,6 +84,11 @@ export interface RouteAdmissionExclusion {
   readonly hostRouteId?: string
   readonly evidenceRouteKeyId?: string
   readonly aaRecordId?: string
+  readonly provider?: string
+  readonly model?: string
+  readonly modelName?: string
+  readonly reasoningEffort?: string
+  readonly expectedAARecordLabel?: string
   readonly reasonCode: string
   readonly quarantineReasonCode?: string
 }
@@ -86,13 +96,15 @@ export interface RouteAdmissionExclusion {
 /** Bounded browser projection compiled by the external Auto plugin. */
 export interface RouteAdmissionProjection {
   readonly schemaVersion: 1
-  readonly projectionVersion: 'route-admission-projection/v2'
+  readonly projectionVersion: 'route-admission-projection/v2' | 'route-admission-projection/v3'
   readonly policyVersion: 'route-admission-policy/v2'
   readonly mode: RouteAdmissionMode
   readonly evidencePackId: string
   readonly evidencePackManifestVersion: string
   readonly aaSnapshotId: string
   readonly bindingRegistryVersion: string
+  readonly localBindingOverlayId?: string
+  readonly localBindingCompilerVersion?: string
   readonly routePolicyVersion: string
   readonly capabilityField: string
   readonly capabilityMethodologyVersion: string

@@ -41,13 +41,15 @@ function projection({
 } = {}): RouteAdmissionProjection {
   return {
     schemaVersion: 1,
-    projectionVersion: 'route-admission-projection/v2',
+    projectionVersion: 'route-admission-projection/v3',
     policyVersion: 'route-admission-policy/v2',
     mode: 'recommended',
     evidencePackId: 'pack',
     evidencePackManifestVersion: 'aa-evidence-pack-manifest/v1',
     aaSnapshotId: 'snapshot',
     bindingRegistryVersion: 'aa-binding-registry/v1',
+    localBindingOverlayId: `aa-local-binding-overlay:v1:${'d'.repeat(64)}`,
+    localBindingCompilerVersion: 'aa-local-binding-compiler/v1',
     routePolicyVersion: 'aa-route-policy/v2',
     capabilityField: 'evaluations.artificial_analysis_intelligence_index',
     capabilityMethodologyVersion: 'v4.1.1',
@@ -70,6 +72,8 @@ function projection({
     counts: {
       hostRoutes: callable.length,
       bindings: callable.length,
+      packBindings: callable.length,
+      automaticBindings: 0,
       callable: callable.length,
       recommended: recommended.length,
       admitted: recommended.length,
@@ -86,6 +90,7 @@ function projection({
       recommended: recommended.includes(key),
       recommendedWinner: recommended.includes(key),
       admittedWinner: recommended.includes(key),
+      bindingOrigin: 'pack',
       provider: 'fixture',
       model: `m${String(index)}`,
       handlingLevel: 'standard',

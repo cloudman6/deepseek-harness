@@ -76,8 +76,25 @@ function differs(actual: unknown, expected: unknown): boolean {
 }
 
 function assertProjection(value: RouteAdmissionProjection, settings?: RouteAdmissionSettings): void {
+  const packBindings = value.counts.packBindings
+  const automaticBindings = value.counts.automaticBindings
+  const projectionVersionValid = value.projectionVersion === 'route-admission-projection/v2'
+    || value.projectionVersion === 'route-admission-projection/v3'
+  const automaticBindingFactsValid = value.projectionVersion === 'route-admission-projection/v2'
+    || (typeof value.localBindingOverlayId === 'string'
+      && /^aa-local-binding-overlay:v1:[a-f0-9]{64}$/.test(value.localBindingOverlayId)
+      && value.localBindingCompilerVersion === 'aa-local-binding-compiler/v1'
+      && typeof packBindings === 'number'
+      && typeof automaticBindings === 'number'
+      && Number.isSafeInteger(packBindings)
+      && Number.isSafeInteger(automaticBindings)
+      && packBindings >= 0
+      && automaticBindings >= 0
+      && packBindings + automaticBindings === value.counts.bindings
+      && value.rows.every(row => row.bindingOrigin === 'pack' || row.bindingOrigin === 'local-automatic'))
   if (differs(value.schemaVersion, 1)
-    || differs(value.projectionVersion, 'route-admission-projection/v2')
+    || !projectionVersionValid
+    || !automaticBindingFactsValid
     || differs(value.policyVersion, 'route-admission-policy/v2')
     || !SET_ID.test(value.recommendedSetId)
     || !SET_ID.test(value.admittedSetId)

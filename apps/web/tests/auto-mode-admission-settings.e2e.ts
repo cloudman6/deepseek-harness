@@ -35,13 +35,15 @@ function projection(settings: RouteAdmissionSettings): RouteAdmissionProjection 
     : RECOMMENDED_SET
   return {
     schemaVersion: 1,
-    projectionVersion: 'route-admission-projection/v2',
+    projectionVersion: 'route-admission-projection/v3',
     policyVersion: 'route-admission-policy/v2',
     mode: settings.mode,
     evidencePackId: 'e2e-pack',
     evidencePackManifestVersion: 'aa-evidence-pack-manifest/v1',
     aaSnapshotId: 'e2e-snapshot',
     bindingRegistryVersion: 'aa-binding-registry/v1',
+    localBindingOverlayId: `aa-local-binding-overlay:v1:${'e'.repeat(64)}`,
+    localBindingCompilerVersion: 'aa-local-binding-compiler/v1',
     routePolicyVersion: 'aa-route-policy/v2',
     capabilityField: 'evaluations.artificial_analysis_intelligence_index',
     capabilityMethodologyVersion: 'v4.1.1',
@@ -64,15 +66,17 @@ function projection(settings: RouteAdmissionSettings): RouteAdmissionProjection 
     counts: {
       hostRoutes: 2,
       bindings: 2,
+      packBindings: 1,
+      automaticBindings: 1,
       callable: 2,
       recommended: 1,
       admitted: admitted.length,
-      exclusions: 0,
+      exclusions: 2,
     },
     rows: [
       { key: RECOMMENDED_KEY, model: 'recommended-route', label: 'Recommended route', price: 1 },
       { key: CUSTOM_KEY, model: 'custom-route', label: 'Custom route', price: 2 },
-    ].map(({ key, model, label, price }) => ({
+    ].map(({ key, model, label, price }, index) => ({
       evidenceRouteKeyId: key,
       evidenceRouteKey: {
         schemaVersion: 1,
@@ -88,6 +92,7 @@ function projection(settings: RouteAdmissionSettings): RouteAdmissionProjection 
       recommended: key === RECOMMENDED_KEY,
       recommendedWinner: key === RECOMMENDED_KEY,
       admittedWinner: admitted.includes(key),
+      bindingOrigin: index === 0 ? 'pack' as const : 'local-automatic' as const,
       routeId: `e2e-provider/${model}`,
       provider: 'e2e-provider',
       model,
@@ -99,7 +104,26 @@ function projection(settings: RouteAdmissionSettings): RouteAdmissionProjection 
       limitations: [],
       reasonCodes: [],
     })),
-    exclusions: [],
+    exclusions: [
+      {
+        source: 'host-route',
+        hostRouteId: `host-route:v1:${'1'.repeat(64)}`,
+        provider: 'qwen-token-plan-cn',
+        model: 'qwen3.7-plus',
+        modelName: 'Qwen3.7 Plus',
+        reasoningEffort: 'low',
+        reasonCode: 'aa-local-binding-record-missing',
+      },
+      {
+        source: 'host-route',
+        hostRouteId: `host-route:v1:${'2'.repeat(64)}`,
+        provider: 'qwen-token-plan-cn',
+        model: 'qwen3.7-plus',
+        modelName: 'Qwen3.7 Plus',
+        reasoningEffort: 'high',
+        reasonCode: 'aa-local-binding-record-ambiguous',
+      },
+    ],
   }
 }
 
@@ -137,6 +161,14 @@ describe('web e2e: Auto route-admission Settings persistence', () => {
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.getByRole('button', { name: 'Auto 模式', exact: true }).click()
     await dialog.getByRole('heading', { name: 'Auto 路由', exact: true }).waitFor({ timeout: 10_000 })
+
+    await dialog.getByText('排除详情 (2)', { exact: true }).click()
+    expect(await dialog.getByRole('heading', { name: 'Qwen3.7 Plus', exact: true }).isVisible()).toBe(true)
+    expect(await dialog.getByText('qwen-token-plan-cn / qwen3.7-plus', { exact: true }).isVisible()).toBe(true)
+    expect(await dialog.getByText('推理等级: low', { exact: true }).isVisible()).toBe(true)
+    expect(await dialog.getByText('当前 AA Snapshot 中没有精确对应记录。', { exact: true }).isVisible()).toBe(true)
+    expect(await dialog.getByText('当前 AA Snapshot 中有多条同名记录，已隔离。', { exact: true }).isVisible()).toBe(true)
+    expect(await dialog.getByText(`host-route:v1:${'1'.repeat(64)}`, { exact: true }).isVisible()).toBe(true)
 
     await dialog.getByRole('radio', { name: 'Custom', exact: true }).click()
     const recommended = dialog.locator('[data-route-key]').filter({ hasText: 'Recommended route' })
