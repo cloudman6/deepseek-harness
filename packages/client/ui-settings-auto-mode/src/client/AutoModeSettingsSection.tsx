@@ -30,6 +30,10 @@ function rowName(row: RouteAdmissionRow): string {
   return route || row.aaRecordLabel
 }
 
+function effortLabel(row: RouteAdmissionRow, t: AutoModeSettingsProps['t']): string {
+  return row.reasoningEffort ?? t('defaultEffort')
+}
+
 function statusKey(row: RouteAdmissionRow): AutoModeLocaleKey {
   if (row.admissionStatus === 'enabled') return 'enabled'
   if (row.admissionStatus === 'disabled') return 'disabled'
@@ -104,6 +108,7 @@ function RouteCard({ row, custom, writable, pending, onToggle, t }: {
         {row.recommended ? <span className={css.tag}>{t('recommendedTag')}</span> : null}
         {row.admittedWinner ? <span className={css.winner}>{t('winner')}</span> : null}
         {row.bindingOrigin === undefined ? null : <span className={css.tag}>{t(row.bindingOrigin === 'pack' ? 'packBindingTag' : 'automaticBindingTag')}</span>}
+        <span className={css.tag}>{t('effort')}: {effortLabel(row, t)}</span>
         <span className={css.tag}>{row.evidenceStatus}</span>
         <span className={css.tag}>{row.hostStatus}</span>
       </div>
@@ -120,6 +125,7 @@ function RouteCard({ row, custom, writable, pending, onToggle, t }: {
           <div><dt>{t('evidence')}</dt><dd>{row.evidenceStatus}</dd></div>
           <div><dt>{t('host')}</dt><dd>{row.hostStatus}</dd></div>
           <div><dt>{t('admission')}</dt><dd>{row.admissionStatus}</dd></div>
+          <div><dt>{t('effort')}</dt><dd>{effortLabel(row, t)}</dd></div>
           {row.reasonCodes.length > 0 ? <div><dt>{t('reason')}</dt><dd>{row.reasonCodes.join(', ')}</dd></div> : null}
         </dl>
       </details>

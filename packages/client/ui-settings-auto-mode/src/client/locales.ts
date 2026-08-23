@@ -16,7 +16,7 @@ export const zh = {
   versions: '依据与版本', pack: 'Evidence Pack', snapshot: 'AA Snapshot', policy: 'Route Policy', admissionPolicy: 'Admission Policy', bindingRegistry: 'Binding Registry',
   capabilityBasis: '能力字段', priceBasis: '价格字段', latencyBasis: '延迟字段', bands: '能力分界',
   exclusionsTitle: '排除详情', noExclusions: '没有排除记录。', showDetails: '显示技术详情', hideDetails: '隐藏技术详情',
-  effort: '推理等级', noExactAARecord: '当前 AA Snapshot 中没有精确对应记录。', ambiguousAARecord: '当前 AA Snapshot 中有多条同名记录，已隔离。',
+  effort: '推理等级', defaultEffort: 'Default', noExactAARecord: '当前 AA Snapshot 中没有精确对应记录。', ambiguousAARecord: '当前 AA Snapshot 中有多条同名记录，已隔离。',
   missingModelMetadata: 'Host 没有提供可用于精确匹配的模型名称。', ambiguousRouteIdentity: '同一证据身份对应多个执行配置，已隔离。',
   unresolvedCustom: '以下 Custom 选择已保留，但当前 Evidence Pack 中没有对应 binding，因此不会参与路由：',
 } as const
@@ -39,7 +39,7 @@ export const en: Record<keyof typeof zh, string> = {
   versions: 'Basis and versions', pack: 'Evidence Pack', snapshot: 'AA Snapshot', policy: 'Route Policy', admissionPolicy: 'Admission Policy', bindingRegistry: 'Binding Registry',
   capabilityBasis: 'Capability field', priceBasis: 'Price field', latencyBasis: 'Latency field', bands: 'Capability bands',
   exclusionsTitle: 'Exclusion details', noExclusions: 'No exclusions.', showDetails: 'Show technical details', hideDetails: 'Hide technical details',
-  effort: 'Effort', noExactAARecord: 'No exact record exists in the current AA Snapshot.', ambiguousAARecord: 'Multiple exact-name records exist in the current AA Snapshot; the route is isolated.',
+  effort: 'Effort', defaultEffort: 'Default', noExactAARecord: 'No exact record exists in the current AA Snapshot.', ambiguousAARecord: 'Multiple exact-name records exist in the current AA Snapshot; the route is isolated.',
   missingModelMetadata: 'The Host did not provide a model name for exact matching.', ambiguousRouteIdentity: 'One evidence identity describes multiple execution configurations; the routes are isolated.',
   unresolvedCustom: 'These Custom selections are preserved, but have no binding in the current Evidence Pack and cannot route:',
 }

@@ -161,6 +161,7 @@ describe('web e2e: Auto route-admission Settings persistence', () => {
     const dialog = page.getByRole('dialog', { name: '设置' })
     await dialog.getByRole('button', { name: 'Auto 模式', exact: true }).click()
     await dialog.getByRole('heading', { name: 'Auto 路由', exact: true }).waitFor({ timeout: 10_000 })
+    expect(await dialog.locator('[data-route-key]').filter({ hasText: 'Recommended route' }).getByText('推理等级: Default', { exact: true }).isVisible()).toBe(true)
 
     await dialog.getByText('排除详情 (2)', { exact: true }).click()
     expect(await dialog.getByRole('heading', { name: 'Qwen3.7 Plus', exact: true }).isVisible()).toBe(true)

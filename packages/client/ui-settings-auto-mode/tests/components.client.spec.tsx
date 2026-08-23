@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { RouteAdmissionView } from '@deepseek-ai/dsh-api-remotes/client'
 import { AutoModeSettingsSection, type AutoModeSettingsProps } from '../src/client/AutoModeSettingsSection.tsx'
@@ -84,6 +84,33 @@ describe('AutoModeSettingsSection', () => {
     expect(view.container.querySelectorAll('[data-route-key]')).toHaveLength(2)
     expect(screen.getByText(`${en.exclusionsTitle} (0)`)).toBeTruthy()
     expect(screen.getByText(en.recommendedChanged)).toBeTruthy()
+  })
+
+  it('shows Default for omitted effort and preserves explicit effort on route cards', async () => {
+    const base = available()
+    if (!base.available) throw new Error('fixture must be available')
+    const explicitRow = base.projection.rows.find(row => row.evidenceRouteKeyId === keyA)
+    const sourceDefaultRow = base.projection.rows.find(row => row.evidenceRouteKeyId === keyB)
+    if (explicitRow === undefined || sourceDefaultRow === undefined) throw new Error('fixture rows must be available')
+    const { reasoningEffort: sourceEffort, ...defaultRow } = sourceDefaultRow
+    if (sourceEffort === undefined) throw new Error('source fixture effort must be explicit')
+    const view: RouteAdmissionView = {
+      ...base,
+      projection: {
+        ...base.projection,
+        rows: [explicitRow, defaultRow],
+      },
+    }
+
+    const rendered = render(<AutoModeSettingsSection {...props({ view: async () => view })} />)
+    await screen.findByRole('heading', { name: en.title })
+
+    const explicitCard = rendered.container.querySelector(`[data-route-key="${keyA}"]`)
+    const defaultCard = rendered.container.querySelector(`[data-route-key="${keyB}"]`)
+    expect(explicitCard).not.toBeNull()
+    expect(defaultCard).not.toBeNull()
+    expect(within(explicitCard as HTMLElement).getByText('Effort: high')).toBeTruthy()
+    expect(within(defaultCard as HTMLElement).getByText('Effort: Default')).toBeTruthy()
   })
 
   it('groups exclusions by readable Host identity and localizes automatic-binding failures', async () => {
