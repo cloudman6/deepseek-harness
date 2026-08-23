@@ -12,7 +12,7 @@ Status: implemented
 
 维护方提供的 Web 组合现在挂载一个可选 Host 桥接包和一个独立 Settings 分区。桥接包只拥有 `dsh-auto-mode` Settings 命名空间、不同 Recommended 集合的有界观察历史和三个直接 Remote。外部插件仍是投影提供方，并独占 Evidence Pack 编译与路线解析。
 
-[Recommended 首选与 Custom 可调用全集决策](../bug-fix/2026-08-23-recommended-winners-preserve-callable-custom-universe.md)负责 admitted 集合语义，并取代本说明最初的完整可调用集合定义。Custom 仍会原子地复制当前 Recommended 集合作为初始值，随后以精确 Evidence Route Key id 存储候选限制。它绝不修改 `valid`、`quarantined`、可调用或不可用等证据状态。缺失或陈旧的 Custom key 会继续保存并展示，但不能参与路由。某一档可以为空；既有升级或明确失败策略负责处理该条件。
+[Recommended 首选与 Custom 可调用全集决策](../bug-fix/2026-08-23-recommended-winners-preserve-callable-custom-universe.md)负责 admitted 集合语义，并取代本说明最初的完整可调用集合定义。首次进入 Custom 时会原子地复制当前 Recommended 集合，并以精确 Evidence Route Key id 存储候选限制。此后切换模式会保留该限制，包括用户明确留下的空集合，而不是再次初始化。它绝不修改 `valid`、`quarantined`、可调用或不可用等证据状态。缺失或陈旧的 Custom key 会继续保存并展示，但不能参与路由。某一档可以为空；既有升级或明确失败策略负责处理该条件。
 
 浏览器接收有界投影，而不是完整 AA 快照。投影展示 active 与不可用 binding、各档首选、排除项、指标及其字段标识、能力分界，以及 Pack／快照／策略版本。它不包含 AA 凭据、获取 payload、原始快照或完整有效请求配置。Settings 变更只影响后续模型调用；当前调用已经冻结的路线保持不变。
 
@@ -31,4 +31,4 @@ Status: implemented
 
 ## 验证
 
-Host 单元测试和真实 Loader 组合测试覆盖 Settings 默认值、Custom 原子初始化、路线校验、有界观察历史、不可用意图、提供方 teardown 与 Remote 形状。组件与 slot 测试覆盖所有可见状态、版本依据、Custom 交互、故障封装、本地化行为与 dispose。随附 Web e2e 验证页面存在，并在外部提供方缺失时快速失败；外部插件测试验证 active 投影，以及 assessor 和用户任务目录都使用 admitted 集合。
+Host 单元测试和真实 Loader 组合测试覆盖 Settings 默认值、Custom 一次性原子初始化、跨模式切换保留选择（包括空集合）、路线校验、有界观察历史、不可用意图、提供方 teardown 与 Remote 形状。组件与 slot 测试覆盖所有可见状态、版本依据、Custom 交互、故障封装、本地化行为与 dispose。一条随附 Web e2e 验证页面存在，并在外部提供方缺失时快速失败；另一条会在真实浏览器中修改 Custom、切换到 Recommended 再切回，并验证复选框和持久化 Settings 都恢复正确。外部插件测试验证 active 投影，以及 assessor 和用户任务目录都使用 admitted 集合。

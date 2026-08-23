@@ -568,7 +568,7 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: '@Remote(\'setMode\') async setMode(mode: RouteAdmissionMode, signal: AbortSignal): Promise<RouteAdmissionView>',
-        description: 'Change mode; entering Custom copies the current Recommended key set in one Settings write.',
+        description: 'Change mode; the first Custom entry copies Recommended and later entries restore the saved subset.',
         parameters: [{ name: 'mode', description: 'user-selected Recommended or Custom admission mode.' }, { name: 'signal', description: 'caller cancellation forwarded to provider inspection.' }],
         returns: 'refreshed settings and projection after the committed mutation.',
       },

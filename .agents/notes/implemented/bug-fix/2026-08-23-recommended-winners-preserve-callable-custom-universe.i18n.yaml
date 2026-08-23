@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write .agents/notes/implemented/bug-fix/2026-08-23-recommended-winners-preserve-callable-custom-universe.md
-2026-08-23-recommended-winners-preserve-callable-custom-universe.md: 171c16a00faeea42440d11ac8f058c17c773e196
-2026-08-23-recommended-winners-preserve-callable-custom-universe.zh.md: d150fdba98cc2d6d911b292f80729bbe7e17ee57
+2026-08-23-recommended-winners-preserve-callable-custom-universe.md: 2d907087ce51943590b978911c506190c9b988c2
+2026-08-23-recommended-winners-preserve-callable-custom-universe.zh.md: 9b175370b97918d9f7e75d2d7b42aa088d2c566f

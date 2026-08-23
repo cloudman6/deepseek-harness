@@ -192,6 +192,38 @@ describe('AutoModeAdmissionService', () => {
     await expect(service.setRoute(keyA, false, new AbortController().signal)).rejects.toThrow(/Custom mode/)
   })
 
+  it('preserves an initialized Custom selection across Recommended mode round trips', async () => {
+    const { service } = await harness()
+    const signal = new AbortController().signal
+    await service.setMode('custom', signal)
+    await service.setRoute(keyA, false, signal)
+    await service.setRoute(keyB, true, signal)
+    await expect(service.view(signal)).resolves.toMatchObject({
+      settings: { mode: 'custom', customEvidenceRouteKeyIds: [keyB] },
+    })
+
+    await service.setMode('recommended', signal)
+    await service.setMode('custom', signal)
+
+    await expect(service.view(signal)).resolves.toMatchObject({
+      settings: { mode: 'custom', customEvidenceRouteKeyIds: [keyB] },
+    })
+  })
+
+  it('preserves an intentionally empty Custom selection across Recommended mode round trips', async () => {
+    const { service } = await harness()
+    const signal = new AbortController().signal
+    await service.setMode('custom', signal)
+    await service.setRoute(keyA, false, signal)
+
+    await service.setMode('recommended', signal)
+    await service.setMode('custom', signal)
+
+    await expect(service.view(signal)).resolves.toMatchObject({
+      settings: { mode: 'custom', customEvidenceRouteKeyIds: [] },
+    })
+  })
+
   it('serializes concurrent route edits so one client cannot overwrite another', async () => {
     const { service, settings } = await harness()
     await service.setMode('custom', new AbortController().signal)

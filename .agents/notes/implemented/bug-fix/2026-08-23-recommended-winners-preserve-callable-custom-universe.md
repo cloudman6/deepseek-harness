@@ -12,7 +12,7 @@ Treating every callable exact binding as Recommended makes the default route set
 
 `route-admission-projection/v2` publishes three independent dynamic key sets: every current callable, policy-eligible, exact-bound route; the Recommended winner in each non-empty handling level under price, latency, and stable-identity ordering; and the set admitted by the current mode. No set has a fixed item count.
 
-Recommended admits its per-level winners. Entering Custom copies those winners, after which the user may add or remove any key from the current callable set. The Host validates both Recommended and admitted keys as callable subsets instead of requiring admitted keys to remain inside Recommended. Unavailable stored intent remains visible and unroutable.
+Recommended admits its per-level winners. The first Custom entry copies those winners, after which the user may add or remove any key from the current callable set. Later Recommended/Custom mode switches preserve the saved Custom subset, including an intentionally empty set, rather than copying the winners again. The Host validates both Recommended and admitted keys as callable subsets instead of requiring admitted keys to remain inside Recommended. Unavailable stored intent remains visible and unroutable.
 
 The external plugin owns winner calculation and set identities. The Host bridge persists user intent and validates the bounded projection without learning AA ordering or handling-level policy.
 
@@ -28,4 +28,4 @@ The default set contains at most one route for each non-empty handling level, wh
 
 ## Verification
 
-Host tests prove that entering Custom copies only Recommended and that a second callable non-Recommended key can then be enabled. Client tests render the non-Recommended callable row as an unchecked Custom control. The external plugin tests prove winner-only Recommended admission, unrestricted callable Custom admission, dynamic set identities, and legacy policy-version replay.
+Host tests prove that the first Custom entry copies only Recommended, that a second callable non-Recommended key can then be enabled, and that both non-default and empty Custom subsets survive mode round trips. A real-browser Web e2e exercises the same round trips through Settings controls and verifies the persisted Settings document. Client tests render the non-Recommended callable row as an unchecked Custom control. The external plugin tests prove winner-only Recommended admission, unrestricted callable Custom admission, dynamic set identities, and legacy policy-version replay.

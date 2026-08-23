@@ -12,7 +12,7 @@ Status: implemented
 
 `route-admission-projection/v2` 发布三个相互独立的动态 key 集合：当前所有可调用、策略合格且精确绑定的路线；每个非空档位中按价格、延迟和稳定身份排序得到的 Recommended 首选；当前模式实际准入的集合。任何集合都没有固定条目数。
 
-Recommended 准入每档首选。进入 Custom 时复制这些首选，之后用户可以增减当前可调用集合中的任何 key。Host 会分别验证 Recommended 和 admitted key 都是可调用集合的子集，不再要求 admitted key 必须属于 Recommended。已存储但不可用的用户意图仍会显示，并且不能参与路由。
+Recommended 准入每档首选。首次进入 Custom 时复制这些首选，之后用户可以增减当前可调用集合中的任何 key。此后在 Recommended 与 Custom 之间切换会保留已保存的 Custom 子集，包括用户明确留下的空集合，而不会再次复制首选。Host 会分别验证 Recommended 和 admitted key 都是可调用集合的子集，不再要求 admitted key 必须属于 Recommended。已存储但不可用的用户意图仍会显示，并且不能参与路由。
 
 外部插件拥有首选计算和集合标识。Host 桥接服务负责持久化用户意图并校验有界投影，不会引入 AA 排序或处理档位策略。
 
@@ -28,4 +28,4 @@ Recommended 准入每档首选。进入 Custom 时复制这些首选，之后用
 
 ## 验证
 
-Host 测试证明进入 Custom 时只复制 Recommended，随后可以启用第二条不在 Recommended 中的可调用 key。客户端测试会把不在 Recommended 中的可调用路线渲染成未勾选的 Custom 控件。外部插件测试证明 Recommended 只准入首选、Custom 可准入任意可调用路线、集合标识动态生成，并保留旧策略版本回放。
+Host 测试证明首次进入 Custom 时只复制 Recommended，随后可以启用第二条不在 Recommended 中的可调用 key，并且非默认及空 Custom 子集都能跨模式切换保留。一条真实浏览器 Web e2e 会通过 Settings 控件执行同样的往返切换，并验证持久化 Settings 文档。客户端测试会把不在 Recommended 中的可调用路线渲染成未勾选的 Custom 控件。外部插件测试证明 Recommended 只准入首选、Custom 可准入任意可调用路线、集合标识动态生成，并保留旧策略版本回放。

@@ -203,7 +203,7 @@ async observeRecommended(projection: RouteAdmissionProjection): Promise<void>
 @Remote('view') async view(signal: AbortSignal): Promise<RouteAdmissionView>
 
 /**
- * Change mode; entering Custom copies the current Recommended key set in one Settings write.
+ * Change mode; the first Custom entry copies Recommended and later entries restore the saved subset.
  * @param mode - user-selected Recommended or Custom admission mode.
  * @param signal - caller cancellation forwarded to provider inspection.
  * @returns refreshed settings and projection after the committed mutation.

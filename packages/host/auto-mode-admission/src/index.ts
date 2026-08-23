@@ -167,6 +167,15 @@ export class AutoModeAdmissionService extends TypertRemoteService {
     return publicSettings(this.scope.get())
   }
 
+  private hasPersistedCustomSelection(): boolean {
+    const descriptor = this.ctx.settings.describe().find(entry =>
+      entry.ns === AUTO_MODE_SETTINGS_NAMESPACE)
+    return descriptor?.user !== undefined
+      && descriptor.user !== null
+      && typeof descriptor.user === 'object'
+      && Object.hasOwn(descriptor.user, 'customEvidenceRouteKeyIds')
+  }
+
   private serializeMutation<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.mutationTail.then(operation, operation)
     this.mutationTail = result.then(() => undefined, () => undefined)
@@ -219,7 +228,7 @@ export class AutoModeAdmissionService extends TypertRemoteService {
   }
 
   /**
-   * Change mode; entering Custom copies the current Recommended key set in one Settings write.
+   * Change mode; the first Custom entry copies Recommended and later entries restore the saved subset.
    * @param mode - user-selected Recommended or Custom admission mode.
    * @param signal - caller cancellation forwarded to provider inspection.
    * @returns refreshed settings and projection after the committed mutation.
@@ -228,9 +237,10 @@ export class AutoModeAdmissionService extends TypertRemoteService {
   async setMode(mode: RouteAdmissionMode, signal: AbortSignal): Promise<RouteAdmissionView> {
     if (!['recommended', 'custom'].includes(mode)) throw new TypeError('route admission mode is invalid')
     return this.serializeMutation(async () => {
-      if (mode === 'custom') {
+      const stored = this.scope.get()
+      if (mode === 'custom' && !this.hasPersistedCustomSelection()) {
         if (this.provider === undefined) throw new Error('Auto admission provider is unavailable')
-        const settings = this.getSettings()
+        const settings = publicSettings(stored)
         const projection = await this.provider.inspect(settings, signal)
         assertProjection(projection, settings)
         await this.scope.update({
