@@ -19,7 +19,7 @@ describe('Auto route-change chat node', () => {
       seq: 24,
       time: 1_700_000_000_000,
       data: {
-        schemaVersion: 2,
+        schemaVersion: 3,
         ...current,
         requestedHandlingLevel: 'deep',
         handlingLevel: 'deep',
@@ -28,6 +28,10 @@ describe('Auto route-change chat node', () => {
         aaSnapshotId: 'aa-chat-fixture-2026-08-22',
         reasonCode: 'high-complexity-task',
         reason: 'Matched a high-complexity task signal.',
+        admissionMode: 'custom',
+        routeAdmissionPolicyVersion: 'route-admission-policy/v1',
+        admittedSetId: `route-admission-set:v1:${'a'.repeat(64)}`,
+        recommendedSetId: `route-admission-set:v1:${'b'.repeat(64)}`,
       },
     } as unknown as SessionEvent
     const match = {

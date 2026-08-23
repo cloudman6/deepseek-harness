@@ -169,6 +169,59 @@ type SettingsUpdateSource = 'update' | 'provider'
 
 Generated from source by `scripts/gen-cordis-catalog.ts` (verified fresh by `pnpm run verify-cordis-catalog` in doc-sync; regenerate with `pnpm run gen-cordis-catalog`) — this section is byte-identical in both language sides of the page. Signature blocks use a `ts cordis-catalog` fence and keep the original source JSDoc; dispatch modes are defined in the [primer](../cordis-primer.md#dispatch-modes), and the framework-inherited `ctx` API lives in [cordis-api/inherited.md](../cordis-api/inherited.md).
 
+<a id="ctxdshautomodeadmission--automodeadmissionservice"></a>
+
+### `ctx.dshAutoModeAdmission` — `AutoModeAdmissionService`
+
+Optional maintained-fork bridge; the external plugin remains the evidence and policy owner.
+
+```ts cordis-catalog
+/**
+ * Register the sole external projection owner for this process.
+ * @param provider - trusted external Auto plugin projection provider.
+ * @returns disposer that removes this exact provider registration.
+ */
+registerProvider(provider: RouteAdmissionProjectionProvider): () => void
+
+/**
+ * Read current user-owned admission fields; audit observations never enter eligibility.
+ * @returns detached settings supplied to the external projection provider.
+ */
+getSettings(): RouteAdmissionSettings
+
+/**
+ * Persist one bounded observation only when the exact Recommended set changed.
+ * @param projection - validated browser projection for the current local recommendation.
+ */
+async observeRecommended(projection: RouteAdmissionProjection): Promise<void>
+
+/**
+ * Read a fresh bounded projection; provider absence remains explicit capability absence.
+ * @param signal - caller cancellation forwarded to provider inspection.
+ * @returns current settings and either a validated projection or explicit unavailability.
+ */
+@Remote('view') async view(signal: AbortSignal): Promise<RouteAdmissionView>
+
+/**
+ * Change mode; entering Custom copies the current Recommended key set in one Settings write.
+ * @param mode - user-selected Recommended or Custom admission mode.
+ * @param signal - caller cancellation forwarded to provider inspection.
+ * @returns refreshed settings and projection after the committed mutation.
+ */
+@Remote('setMode') async setMode(mode: RouteAdmissionMode, signal: AbortSignal): Promise<RouteAdmissionView>
+
+/**
+ * Enable or disable one current callable exact binding in Custom mode.
+ * @param evidenceRouteKeyId - canonical exact evidence route identity to edit.
+ * @param enabled - whether the route remains admitted for later Auto calls.
+ * @param signal - caller cancellation forwarded to provider inspection.
+ * @returns refreshed settings and projection after the committed mutation.
+ */
+@Remote('setRoute') async setRoute(evidenceRouteKeyId: string, enabled: boolean, signal: AbortSignal): Promise<RouteAdmissionView>
+```
+
+Source: [`packages/host/auto-mode-admission/src/index.ts:126`](../../packages/host/auto-mode-admission/src/index.ts)
+
 <a id="ctxsettings--settingsprovider-abstract-seam"></a>
 
 ### `ctx.settings` — `SettingsProvider` (abstract seam)

@@ -94,6 +94,11 @@
     - id: plugin-inventory
       name: '@deepseek-ai/dsh-host-plugin-inventory'
 
+    # Optional Settings/Remote bridge. The external Auto plugin supplies the
+    # bounded projection and remains the evidence and route-policy owner.
+    - id: auto-mode-admission
+      name: '@deepseek-ai/dsh-host-auto-mode-admission'
+
     # The API gateway: the transport-agnostic dispatch face every client shape
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway
@@ -194,6 +199,9 @@
 
     - id: ui-settings-plugin-inventory
       name: '@deepseek-ai/dsh-client-ui-settings-plugin-inventory'
+
+    - id: ui-settings-auto-mode
+      name: '@deepseek-ai/dsh-client-ui-settings-auto-mode'
 
     - id: ui-conversation
       name: '@deepseek-ai/dsh-client-ui-conversation'

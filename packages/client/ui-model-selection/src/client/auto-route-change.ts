@@ -60,11 +60,12 @@ function selection(event: SessionEvent): AutoRouteDecision | undefined {
   const data = record(wire.data)
   if (data === undefined) return undefined
   const legacyLevel = data.schemaVersion === 1 ? legacyHandlingLevel(data.tier) : undefined
-  const handlingLevel = data.schemaVersion === 2 ? data.handlingLevel : legacyLevel
-  const routeBasis = data.schemaVersion === 2
+  const currentSchema = data.schemaVersion === 2 || data.schemaVersion === 3
+  const handlingLevel = currentSchema ? data.handlingLevel : legacyLevel
+  const routeBasis = currentSchema
     ? data.routeBasis
     : data.tier === 'fallback' ? 'configured-deep-fallback' : 'aa-matched'
-  if ((data.schemaVersion !== 1 && data.schemaVersion !== 2)
+  if ((data.schemaVersion !== 1 && data.schemaVersion !== 2 && data.schemaVersion !== 3)
     || typeof data.provider !== 'string'
     || typeof data.model !== 'string'
     || (data.reasoningEffort !== undefined && typeof data.reasoningEffort !== 'string')

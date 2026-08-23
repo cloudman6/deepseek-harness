@@ -37,6 +37,9 @@
       "path": "../../host/plugin-inventory"
     },
     {
+      "path": "../../host/auto-mode-admission"
+    },
+    {
       "path": "../../interaction/commands"
     },
     {

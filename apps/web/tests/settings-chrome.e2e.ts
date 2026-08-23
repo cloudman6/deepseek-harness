@@ -35,13 +35,17 @@ describe('web e2e: settings modal and General preferences', () => {
 
   beforeAll(async () => {
     scaffold = await launchWebScaffold({})
-    browser = await chromium.launch()
+    const executablePath = process.env.DSH_PLAYWRIGHT_EXECUTABLE_PATH
+    browser = await chromium.launch(executablePath === undefined ? {} : { executablePath })
     // Chinese browser: the shared page asserts the localized settings surface
     // the client derives from it (the English default has its own spec below).
     page = await browser.newPage({ viewport: { width: 1680, height: 1000 }, locale: ZH_BROWSER_LOCALE })
     tripwire = watchConsole(page)
     await page.goto(scaffold.baseUrl, { waitUntil: 'load' })
-    await page.waitForSelector('[class*="frame"]', { timeout: 30_000 })
+    await page.waitForSelector('[class*="frame"]', { timeout: 30_000 }).catch(async (error: unknown) => {
+      const body = (await page.locator('body').innerText()).slice(0, 2_000)
+      throw new Error(`settings page did not boot: ${String(error)}\nbody=${body}\npageErrors=${tripwire.pageErrors.join(' | ')}`)
+    })
   }, 120_000)
 
   afterAll(async () => {
@@ -94,6 +98,13 @@ describe('web e2e: settings modal and General preferences', () => {
     await dialog.getByRole('button', { name: '模型' }).click()
     await expect.poll(() => dialog.getByRole('button', { name: '模型' }).getAttribute('aria-current'), { timeout: 5_000 }).toBe('true')
     expect(await dialog.getByRole('button', { name: '通用设置' }).getAttribute('aria-current')).toBeNull()
+    // The maintained Settings surface is present even when the optional
+    // external Auto plugin is absent, and reports capability absence rather
+    // than inventing stale route rows or hiding the configuration seam.
+    await dialog.getByRole('button', { name: 'Auto 模式', exact: true }).click()
+    await dialog.getByRole('heading', { name: 'Auto 路由', exact: true }).waitFor({ timeout: 10_000 })
+    expect(await dialog.getByText('Auto Mode 插件尚未提供路由目录。', { exact: true }).count()).toBe(1)
+    expect(await dialog.locator('[data-route-key]').count()).toBe(0)
     // Plugins is a read-only projection of the same assembled Loader tree.
     // Capture one stable shipped row rather than the whole inventory so adding
     // an unrelated plugin does not rewrite this surface's golden.

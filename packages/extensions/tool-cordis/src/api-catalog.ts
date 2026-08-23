@@ -539,6 +539,48 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'dshAutoModeAdmission',
+    summary: 'Optional maintained-fork bridge; the external plugin remains the evidence and policy owner.',
+    description: 'Optional maintained-fork bridge; the external plugin remains the evidence and policy owner.',
+    methods: [
+      {
+        signature: 'registerProvider(provider: RouteAdmissionProjectionProvider): () => void',
+        description: 'Register the sole external projection owner for this process.',
+        parameters: [{ name: 'provider', description: 'trusted external Auto plugin projection provider.' }],
+        returns: 'disposer that removes this exact provider registration.',
+      },
+      {
+        signature: 'getSettings(): RouteAdmissionSettings',
+        description: 'Read current user-owned admission fields; audit observations never enter eligibility.',
+        parameters: [],
+        returns: 'detached settings supplied to the external projection provider.',
+      },
+      {
+        signature: 'async observeRecommended(projection: RouteAdmissionProjection): Promise<void>',
+        description: 'Persist one bounded observation only when the exact Recommended set changed.',
+        parameters: [{ name: 'projection', description: 'validated browser projection for the current local recommendation.' }],
+      },
+      {
+        signature: '@Remote(\'view\') async view(signal: AbortSignal): Promise<RouteAdmissionView>',
+        description: 'Read a fresh bounded projection; provider absence remains explicit capability absence.',
+        parameters: [{ name: 'signal', description: 'caller cancellation forwarded to provider inspection.' }],
+        returns: 'current settings and either a validated projection or explicit unavailability.',
+      },
+      {
+        signature: '@Remote(\'setMode\') async setMode(mode: RouteAdmissionMode, signal: AbortSignal): Promise<RouteAdmissionView>',
+        description: 'Change mode; entering Custom copies the current Recommended key set in one Settings write.',
+        parameters: [{ name: 'mode', description: 'user-selected Recommended or Custom admission mode.' }, { name: 'signal', description: 'caller cancellation forwarded to provider inspection.' }],
+        returns: 'refreshed settings and projection after the committed mutation.',
+      },
+      {
+        signature: '@Remote(\'setRoute\') async setRoute(evidenceRouteKeyId: string, enabled: boolean, signal: AbortSignal): Promise<RouteAdmissionView>',
+        description: 'Enable or disable one current callable exact binding in Custom mode.',
+        parameters: [{ name: 'evidenceRouteKeyId', description: 'canonical exact evidence route identity to edit.' }, { name: 'enabled', description: 'whether the route remains admitted for later Auto calls.' }, { name: 'signal', description: 'caller cancellation forwarded to provider inspection.' }],
+        returns: 'refreshed settings and projection after the committed mutation.',
+      },
+    ],
+  },
+  {
     key: 'e2b',
     summary: 'Creates one lazily consumable E2B SDK handle and deletes the sandbox at timeout or disposal.',
     description: 'Creates one lazily consumable E2B SDK handle and deletes the sandbox at timeout or disposal. Creation begins at plugin construction; adapters await getSandbox before their first operation.',
@@ -3597,6 +3639,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type ReasoningEffortId = Branded<\'ReasoningEffortId\'>;',
   },
   {
+    name: 'RecommendedChanges',
+    declaration: 'export interface RecommendedChanges {\n    readonly addedEvidenceRouteKeyIds: readonly string[];\n    readonly removedEvidenceRouteKeyIds: readonly string[];\n    readonly fromSetId?: string;\n    readonly toSetId: string;\n}',
+  },
+  {
     name: 'RedactedSecret',
     declaration: 'export interface RedactedSecret {\n    path: string[];\n    set: boolean;\n}',
   },
@@ -3647,6 +3693,58 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ResumeAgentOptions',
     declaration: 'export interface ResumeAgentOptions {\n    readonly resumeSessionId: SessionId;\n    readonly agentOptions?: AgentOptions;\n    readonly signal?: AbortSignal;\n    readonly setup?: AgentSetup;\n}',
+  },
+  {
+    name: 'RouteAdmissionAvailableView',
+    declaration: 'export interface RouteAdmissionAvailableView {\n    readonly available: true;\n    readonly writable: boolean;\n    readonly settings: RouteAdmissionSettings;\n    readonly projection: RouteAdmissionProjection;\n    readonly recommendedChanges: RecommendedChanges;\n}',
+  },
+  {
+    name: 'RouteAdmissionBand',
+    declaration: 'export interface RouteAdmissionBand {\n    readonly minimumInclusive: number | null;\n    readonly maximumExclusive: number | null;\n}',
+  },
+  {
+    name: 'RouteAdmissionCounts',
+    declaration: 'export interface RouteAdmissionCounts {\n    readonly hostRoutes: number;\n    readonly bindings: number;\n    readonly recommended: number;\n    readonly admitted: number;\n    readonly exclusions: number;\n}',
+  },
+  {
+    name: 'RouteAdmissionEvidenceKey',
+    declaration: 'export interface RouteAdmissionEvidenceKey {\n    readonly schemaVersion: 1;\n    readonly providerNamespace: string;\n    readonly modelKey: string;\n    readonly evidenceControls: Readonly<Record<string, string | number | boolean>>;\n}',
+  },
+  {
+    name: 'RouteAdmissionExclusion',
+    declaration: 'export interface RouteAdmissionExclusion {\n    readonly source: \'host-route\' | \'binding\';\n    readonly hostRouteId?: string;\n    readonly evidenceRouteKeyId?: string;\n    readonly aaRecordId?: string;\n    readonly reasonCode: string;\n    readonly quarantineReasonCode?: string;\n}',
+  },
+  {
+    name: 'RouteAdmissionHandlingLevel',
+    declaration: 'export type RouteAdmissionHandlingLevel = \'light\' | \'standard\' | \'deep\';',
+  },
+  {
+    name: 'RouteAdmissionMode',
+    declaration: 'export type RouteAdmissionMode = \'recommended\' | \'custom\';',
+  },
+  {
+    name: 'RouteAdmissionProjection',
+    declaration: 'export interface RouteAdmissionProjection {\n    readonly schemaVersion: 1;\n    readonly projectionVersion: \'route-admission-projection/v1\';\n    readonly policyVersion: \'route-admission-policy/v1\';\n    readonly mode: RouteAdmissionMode;\n    readonly evidencePackId: string;\n    readonly evidencePackManifestVersion: string;\n    readonly aaSnapshotId: string;\n    readonly bindingRegistryVersion: string;\n    readonly routePolicyVersion: string;\n    readonly capabilityField: string;\n    readonly capabilityMethodologyVersion: string;\n    readonly priceField: string;\n    readonly priceNormalizationVersion: string;\n    readonly latencyField: string;\n    readonly bandPolicy: Readonly<Record<RouteAdmissionHandlingLevel, RouteAdmissionBand>>;\n    readonly recommendedEvidenceRouteKeyIds: readonly string[];\n    readonly admittedEvidenceRouteKeyIds: readonly string[];\n    readonly configuredCustomEvidenceRouteKeyIds: readonly string[];\n    readonly unresolvedCustomEvidenceRouteKeyIds: readonly string[];\n    readonly recommendedSetId: string;\n    readonly admittedSetId: string;\n    readonly emptyAdmittedLevels: readonly RouteAdmissionHandlingLevel[];\n    readonly counts: RouteAdmissionCounts;\n    readonly rows: readonly RouteAdmissionRow[];\n    readonly exclusions: readonly RouteAdmissionExclusion[];\n}',
+  },
+  {
+    name: 'RouteAdmissionProjectionProvider',
+    declaration: 'export interface RouteAdmissionProjectionProvider {\n    inspect(settings: RouteAdmissionSettings, signal?: AbortSignal): Promise<RouteAdmissionProjection>;\n}',
+  },
+  {
+    name: 'RouteAdmissionRow',
+    declaration: 'export interface RouteAdmissionRow {\n    readonly evidenceRouteKeyId: string;\n    readonly evidenceRouteKey: RouteAdmissionEvidenceKey;\n    readonly aaRecordId: string;\n    readonly aaRecordLabel: string;\n    readonly evidenceStatus: \'valid\' | \'ineligible\' | \'quarantined\';\n    readonly hostStatus: \'callable\' | \'unavailable\';\n    readonly admissionStatus: \'enabled\' | \'disabled\' | \'unavailable\' | \'excluded\';\n    readonly recommended: boolean;\n    readonly recommendedWinner: boolean;\n    readonly admittedWinner: boolean;\n    readonly routeId?: string;\n    readonly provider?: string;\n    readonly model?: string;\n    readonly effectiveConfigFingerprint?: string;\n    readonly handlingLevel?: RouteAdmissionHandlingLevel;\n    readonly aaCapabilityScore?: number;\n    readonly aaPrice?: number;\n    readonly aaLatencySeconds?: number | null;\n    readonly matchBasis: readonly string[];\n    readonly limitations: readonly string[];\n    readonly reasonCodes: readonly string[];\n}',
+  },
+  {
+    name: 'RouteAdmissionSettings',
+    declaration: 'export interface RouteAdmissionSettings {\n    readonly mode: RouteAdmissionMode;\n    readonly customEvidenceRouteKeyIds: string[];\n}',
+  },
+  {
+    name: 'RouteAdmissionUnavailableView',
+    declaration: 'export interface RouteAdmissionUnavailableView {\n    readonly available: false;\n    readonly writable: boolean;\n    readonly settings: RouteAdmissionSettings;\n    readonly reason: \'provider-unavailable\';\n}',
+  },
+  {
+    name: 'RouteAdmissionView',
+    declaration: 'export type RouteAdmissionView = RouteAdmissionAvailableView | RouteAdmissionUnavailableView;',
   },
   {
     name: 'RpcError',

@@ -97,6 +97,14 @@ const GROUP_ORDER = [
 
 const SERVICE_ROLES: ServiceRole[] = [
   {
+    key: 'dshAutoModeAdmission',
+    pkg: 'auto-mode-admission',
+    title: 'Optional Auto route-admission Settings bridge',
+    mode: 'core',
+    consumers: ['api-remotes'],
+    note: 'Persists user admission and exposes a bounded external-plugin projection; the external plugin owns evidence and routing.',
+  },
+  {
     key: 'attachments',
     pkg: 'attachment',
     title: 'Durable binary attachment storage',
