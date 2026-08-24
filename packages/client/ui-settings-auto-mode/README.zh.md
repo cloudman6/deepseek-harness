@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-用于路线 admission 的 Web 设置 **Auto 模式**分区。分区挂载后会懒读取维护方提供的 Host 桥接服务，并明确展示 Recommended 与 Custom 两种模式。Recommended 会启用外部价格、延迟和稳定身份排序在每个非空档位中的首选路线。页面还会展示其他所有可调用、不可用或已排除的 binding、Pack 与自动 binding origin、AA 能力／归一化价格／延迟指标、能力分界，以及生成结果所用的 Evidence Pack、快照、binding 注册表、本地 overlay、路线策略与 admission 策略标识。每张路线卡片及其技术详情都会显示显式推理等级；Host 路线没有 effort 控制时显示 `Default`，且此标签不会向请求添加 effort 参数。Exclusion 按可读 model display name 分组，并显示 provider/model、可选 effort、本地化原因和用于技术检查的精确 route ID。
+用于路线 admission 的 Web 设置 **Auto 模式**分区。分区挂载后会懒读取维护方提供的 Host 桥接服务，并明确展示 Recommended 与 Custom 两种模式。Recommended 会启用外部价格、延迟和稳定身份排序在每个非空档位中的首选路线。页面还会展示其他所有可调用、不可用或已排除的 binding、Pack 与自动 binding origin、AA 能力／归一化价格／延迟指标、能力分界，以及生成结果所用的 Evidence Pack、快照、binding 注册表、本地 overlay、路线策略与 admission 策略标识。Host 路线没有 effort 控制时，每张路线卡片会在 AA record 名称后追加 `(Default)`，卡片及其技术详情也会将推理等级显示为 `Default`；此标签不会向请求添加 effort 参数。Exclusion 按可读 model display name 分组，并显示 provider/model、可选 effort、本地化原因和用于技术检查的精确 route ID。
 
 首次使用 Custom 时从当前 Recommended 集合开始。此后在 Recommended 与 Custom 之间切换会保留已保存的 Custom 选择，包括用户明确留下的空集合。所有同时满足精确绑定和 Host 当前可调用的行都提供复选框，包括 Recommended 之外的可调用路线；修改复选框只约束 Auto 候选，不会改变证据状态。当前 Evidence Pack 已不再包含的已存储 key 仍会显示为保留但不可路由的用户意图。空档、Settings 只读、提供方缺失、Recommended 集合变化、加载、重试、保存中、成功与通用失败状态都会明确展示。界面文案说明 AA 数据是启发式证据，不是项目 Benchmark 或具体任务质量保证，并说明变更从下一次模型调用开始生效。
 

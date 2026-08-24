@@ -34,6 +34,12 @@ function effortLabel(row: RouteAdmissionRow, t: AutoModeSettingsProps['t']): str
   return row.reasoningEffort ?? t('defaultEffort')
 }
 
+function recordLabel(row: RouteAdmissionRow, t: AutoModeSettingsProps['t']): string {
+  return row.reasoningEffort === undefined
+    ? `${row.aaRecordLabel} (${t('defaultEffort')})`
+    : row.aaRecordLabel
+}
+
 function statusKey(row: RouteAdmissionRow): AutoModeLocaleKey {
   if (row.admissionStatus === 'enabled') return 'enabled'
   if (row.admissionStatus === 'disabled') return 'disabled'
@@ -89,7 +95,7 @@ function RouteCard({ row, custom, writable, pending, onToggle, t }: {
       <div className={css.routeHead}>
         <div className={css.routeIdentity}>
           <strong>{name}</strong>
-          <span>{row.aaRecordLabel}</span>
+          <span>{recordLabel(row, t)}</span>
         </div>
         {controllable ? (
           <label className={css.switchLabel}>

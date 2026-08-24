@@ -92,8 +92,9 @@ describe('AutoModeSettingsSection', () => {
     const explicitRow = base.projection.rows.find(row => row.evidenceRouteKeyId === keyA)
     const sourceDefaultRow = base.projection.rows.find(row => row.evidenceRouteKeyId === keyB)
     if (explicitRow === undefined || sourceDefaultRow === undefined) throw new Error('fixture rows must be available')
-    const { reasoningEffort: sourceEffort, ...defaultRow } = sourceDefaultRow
+    const { reasoningEffort: sourceEffort, ...defaultSource } = sourceDefaultRow
     if (sourceEffort === undefined) throw new Error('source fixture effort must be explicit')
+    const defaultRow = { ...defaultSource, aaRecordLabel: 'MiniMax-M2.5' }
     const view: RouteAdmissionView = {
       ...base,
       projection: {
@@ -110,7 +111,9 @@ describe('AutoModeSettingsSection', () => {
     expect(explicitCard).not.toBeNull()
     expect(defaultCard).not.toBeNull()
     expect(within(explicitCard as HTMLElement).getByText('Effort: high')).toBeTruthy()
+    expect(within(explicitCard as HTMLElement).getByText('DeepSeek Pro High')).toBeTruthy()
     expect(within(defaultCard as HTMLElement).getByText('Effort: Default')).toBeTruthy()
+    expect(within(defaultCard as HTMLElement).getByText('MiniMax-M2.5 (Default)')).toBeTruthy()
   })
 
   it('groups exclusions by readable Host identity and localizes automatic-binding failures', async () => {
